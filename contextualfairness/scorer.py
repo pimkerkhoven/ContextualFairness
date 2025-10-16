@@ -1,6 +1,7 @@
 # TODO: copyright information
 
 import functools
+import itertools
 
 
 # TODO: add documentation
@@ -9,10 +10,10 @@ class Result:
         self.df = df
 
     def most_unfairly_treated(self, n_individuals=10):
-        return self.df.sort_values(by=['total'], ascending=False).head(n_individuals)
-        
+        return self.df.sort_values(by=["total"], ascending=False).head(n_individuals)
+
     def total_score(self):
-        return self.df['total'].sum()
+        return self.df["total"].sum()
 
     def scaled_group_scores(self, attributes=None):
         return self.group_scores(attributes, scaled=True)
@@ -22,12 +23,12 @@ class Result:
             raise ValueError("Must specify at least one attribute")
 
         for attr in attributes:
-            if not attr in X.columns:
+            if attr not in self.df.columns:
                 raise ValueError(f"Colum with name `{attr}` does not exist in ....")
 
         values = [sorted(self.df[attr].unique()) for attr in attributes]
         groups = itertools.product(*values)
-        
+
         result = dict()
         for group in groups:
             indexer = True
@@ -37,32 +38,36 @@ class Result:
                 group_name += f"{attr}={val}"
 
             result[group_name] = dict()
-            result[group_name]['data'] = self.df[indexer]['total'].copy()
-            result[group_name]['score'] = result[group_name]['data'].sum()
+            result[group_name]["data"] = self.df[indexer]["total"].copy()
+            result[group_name]["score"] = result[group_name]["data"].sum()
 
         if scaled:
             denominator = 0
             for group_name in result.keys():
-                denominator += result[group_name]['score'] / len(result[group_name]['data'])
+                denominator += result[group_name]["score"] / len(
+                    result[group_name]["data"]
+                )
 
             for group_name in result.keys():
-                scaled_score = ((result[group_name]['score'] / len(result[group_name]['data'])) / denominator) * self.total_score()
-                ratio = scaled_score / result[group_name]['score']
+                scaled_score = (
+                    (result[group_name]["score"] / len(result[group_name]["data"]))
+                    / denominator
+                ) * self.total_score()
+                ratio = scaled_score / result[group_name]["score"]
 
-                result[group_name]['data'] *= ratio
-                result[group_name]['score'] = scaled_score
+                result[group_name]["data"] *= ratio
+                result[group_name]["score"] = scaled_score
 
         return result
 
-    
 
-def contexual_fairness_score(norms: ..., X: DataFrame,y_pred:..., y_pred_probas:...=None):
+def contexual_fairness_score(norms, X, y_pred, y_pred_probas=None):
     """Calculate the contexual fairness scores.
     TODO: description
 
     Parameters
     ----------
-    
+
     Returns
     -------
 
@@ -73,8 +78,17 @@ def contexual_fairness_score(norms: ..., X: DataFrame,y_pred:..., y_pred_probas:
     if len(norms) < 1:
         raise ValueError("Must specify at least one norm.")
 
-    if not sum((norm.weight for norm in norms)) == 1:
-        raise UserWarning("Norm weights must sum to one.")
+    total_norm_weight = 0
+    for norm in norms:
+        if norm.weight < 0 or norm.weight > 1:
+            raise ValueError(
+                f"Weight for norm `{norm.name}` is {norm.weight}. Must be between 0 and 1."
+            )
+
+        total_norm_weight += norm.weight
+
+    if not total_norm_weight == 1:
+        raise ValueError("Norm weights must sum to one.")
 
     if not len(X) == len(y_pred):
         raise ValueError("X and y_pred must have the same length.")
@@ -90,13 +104,13 @@ def contexual_fairness_score(norms: ..., X: DataFrame,y_pred:..., y_pred_probas:
     result = X.copy()
 
     for norm in norms:
-        result.loc[:, norm.name] = norm(X, y_pred, outcome_scores) * norm.weight / norm.normalizer(len(X))
+        result.loc[:, norm.name] = norm(X, y_pred, outcome_scores)
+        result.loc[:, norm.name] *= (
+            result.loc[:, norm.name] * norm.weight / norm.normalizer(len(X))
+        )
 
-    result.loc[:, 'total'] = functools.reduce(lambda a,b: a + b, [result[norm.name] for norm in norms])
+    result.loc[:, "total"] = functools.reduce(
+        lambda a, b: a + b, [result[norm.name] for norm in norms]
+    )
 
     return Result(result)
-
-
-    
-    
-    
