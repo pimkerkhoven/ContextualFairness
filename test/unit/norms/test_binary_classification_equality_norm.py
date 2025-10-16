@@ -66,7 +66,10 @@ def test_binary_classification_call_three_classes_present_no_positive_class():
     with pytest.raises(ValueError) as e1:
         norm(None, y_pred, None)
 
-    assert str(e1.value) == "y_pred must not contain more than two classes for binary classification."
+    assert (
+        str(e1.value)
+        == "y_pred must not contain more than two classes for binary classification."
+    )
 
 
 def test_binary_classification_call_only_three_classes_present_with_positive_class():
@@ -77,4 +80,7 @@ def test_binary_classification_call_only_three_classes_present_with_positive_cla
     with pytest.raises(ValueError) as e1:
         norm(None, y_pred, None)
 
-    assert str(e1.value) == "y_pred must not contain more than two classes for binary classification."
+    assert (
+        str(e1.value)
+        == "y_pred must not contain more than two classes for binary classification."
+    )

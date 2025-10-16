@@ -16,7 +16,9 @@ class BinaryClassificationEqualityNorm:
         values, counts = np.unique(y_pred, return_counts=True)
 
         if len(values) > 2:
-            raise ValueError("y_pred must not contain more than two classes for binary classification.")
+            raise ValueError(
+                "y_pred must not contain more than two classes for binary classification."
+            )
 
         if self.positive_class_value is None:
             ind = np.argmax(counts)
@@ -48,8 +50,9 @@ class RegressionEqualityNorm:
 
     def normalizer(self, n):
         if self._normalizer_val is None:
-            print("Must have been called once before normalizing")
-            exit()
+            raise RuntimeError(
+                "Regression equality norm must have been called at least once before being able to compute normalizer."
+            )
 
         # print(n, self._normalizer_val)
         return n * self._normalizer_val
