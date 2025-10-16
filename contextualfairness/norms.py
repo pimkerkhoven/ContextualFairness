@@ -6,6 +6,33 @@ import numpy as np
 import pandas as pd
 
 
+class BinaryClassificationEqualityNorm:
+    def __init__(self, weight, positive_class_value=None):
+        self.weight = weight
+        self.name = "Equality"
+        self.positive_class_value = positive_class_value
+
+    def __call__(self, X, y_pred, _):
+        values, counts = np.unique(y_pred, return_counts=True)
+
+        if len(values) > 2:
+            raise ValueError("y_pred must not contain more than two classes for binary classification.")
+
+        if self.positive_class_value is None:
+            ind = np.argmax(counts)
+            reference_class = values[ind]
+        else:
+            reference_class = self.positive_class_value
+
+        return [0 if y == reference_class else 1 for y in y_pred]
+
+    def normalizer(self, n):
+        if self.positive_class_value is None:
+            return math.floor(n / 2)
+
+        return n
+
+
 class RegressionEqualityNorm:
     def __init__(self, weight):
         self.weight = weight
@@ -26,30 +53,6 @@ class RegressionEqualityNorm:
 
         # print(n, self._normalizer_val)
         return n * self._normalizer_val
-
-
-class BinaryClassificationEqualityNorm:
-    def __init__(self, weight, positive_class_value=None):
-        self.weight = weight
-        self.name = "Equality"
-        self.positive_class_value = positive_class_value
-
-    def __call__(self, X, y_pred, _):
-        # Check if X and y_pred have same length
-        if self.positive_class_value is None:
-            values, counts = np.unique(y_pred, return_counts=True)
-            ind = np.argmax(counts)
-            reference_class = values[ind]
-        else:
-            reference_class = self.positive_class_value
-
-        return [0 if y == reference_class else 1 for y in y_pred]
-
-    def normalizer(self, n):
-        if self.positive_class_value is None:
-            return math.floor(n / 2)
-
-        return n
 
 
 class RankNorm:
