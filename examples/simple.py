@@ -1,6 +1,6 @@
 import pandas as pd
 
-from contextualfairness.scorer import contexual_fairness_score
+from contextualfairness.scorer import contextual_fairness_score
 from contextualfairness.norms import BinaryClassificationEqualityNorm, RankNorm
 
 if __name__ == "__main__":
@@ -23,12 +23,16 @@ if __name__ == "__main__":
 
     norms = [BinaryClassificationEqualityNorm(0.5), RankNorm(0.5, richer_is_better)]
 
-    scorer = contexual_fairness_score(
+    scorer = contextual_fairness_score(
         norms=norms,
         X=X,
         y_pred=y_pred,
         y_pred_probas=y_pred_probas,
     )
 
-    print(scorer.df.head())
-    print(scorer.total_score())
+    # print(scorer.df.head())
+    # print(scorer.total_score())
+
+    print(scorer.group_scores(["sex", "age"]))
+
+    scorer.group_scores(["sex", "age"], scaled=True)

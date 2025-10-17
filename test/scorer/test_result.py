@@ -1,6 +1,7 @@
 import pytest
 
 import pandas as pd
+import numpy as np
 
 from contextualfairness.scorer import Result
 
@@ -150,3 +151,25 @@ def test_group_score_scaled_with_empty_group():
     assert sum(result["sex=M;age=Y"]["data"]) == pytest.approx(
         result["sex=M;age=Y"]["score"]
     )
+
+
+def test_group_score_scaled_with_group_with_score_of_0():
+    df = pd.DataFrame(
+        {
+            "income": {0: 50, 1: 80, 2: 30, 3: 100, 4: 30},
+            "age": {0: "young", 1: "young", 2: "old", 3: "young", 4: "old"},
+            "sex": {0: "male", 1: "female", 2: "male", 3: "female", 4: "male"},
+            "y true": {0: 1, 1: 0, 2: 0, 3: 1, 4: 0},
+            "Equality": {0: 0.0, 1: 0.25, 2: 0.0, 3: 0.25, 4: 0.0},
+            "richer_is_better": {0: 0.05, 1: 0.15, 2: 0.0, 3: 0.15, 4: 0.0},
+            "total": {0: 0.05, 1: 0.4, 2: 0.0, 3: 0.4, 4: 0.0},
+        }
+    )
+
+    result_obj = Result(df)
+    result = result_obj.group_scores(["sex", "age"], scaled=True)
+
+    assert result["sex=female;age=old"]["data"].notna().all()
+    assert result["sex=female;age=young"]["data"].notna().all()
+    assert result["sex=male;age=old"]["data"].notna().all()
+    assert result["sex=male;age=young"]["data"].notna().all()

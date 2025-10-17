@@ -53,7 +53,11 @@ class Result:
                         (result[group_name]["score"] / len(result[group_name]["data"]))
                         / denominator
                     ) * self.total_score()
-                    ratio = scaled_score / result[group_name]["score"]
+
+                    if result[group_name]["score"] == 0:
+                        ratio = 0
+                    else:
+                        ratio = scaled_score / result[group_name]["score"]
 
                     result[group_name]["data"] *= ratio
                     result[group_name]["score"] = scaled_score
