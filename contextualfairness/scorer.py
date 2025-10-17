@@ -1,7 +1,5 @@
 # TODO: copyright information
 
-import pandas as pd
-
 import functools
 import itertools
 
