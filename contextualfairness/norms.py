@@ -125,32 +125,3 @@ class RankNorm:
     def normalizer(self, n):
         return n * (n - 1) / 2
 
-
-class AttributeRankNorm(RankNorm):
-    def __init__(self, weight, attribute, name=None, lower_is_better=False):
-        if lower_is_better:
-
-            def norm_function(x):
-                return -x[attribute]
-        else:
-
-            def norm_function(x):
-                return x[attribute]
-
-        if name is None:
-            if lower_is_better:
-                name = f"Lower {attribute} is better"
-            else:
-                name = f"Higher {attribute} is better"
-
-        super().__init__(weight, norm_function, name)
-        self.attribute = attribute
-
-    def __call__(self, X, _, outcome_score):
-        # check attribute exists and is numeric
-        if self.attribute not in X:
-            raise ValueError(f"Colum with name `{self.attribute}` does not exist in X.")
-
-        # TODO: check is numeric
-
-        super().__call__(X, _, outcome_score)
