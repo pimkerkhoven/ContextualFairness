@@ -59,7 +59,7 @@ class Result:
         return result
 
 
-def contexual_fairness_score(norms, X, y_pred, y_pred_probas=None):
+def contextual_fairness_score(norms, X, y_pred, y_pred_probas=None):
     """Calculate the contexual fairness scores.
     TODO: description
 

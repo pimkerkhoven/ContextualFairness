@@ -65,15 +65,15 @@ class RankNorm:
         self.norm_function = norm_function
 
     def __call__(self, X, _, outcome_score):
+        scores = []
+        X = X.copy()
+
         try:
             X["norm_score"] = X.apply(self.norm_function, axis=1)
         except Exception as e:
             raise RuntimeError(
                 f"Error occured when applying norm_function for `{self.name}`."
             ) from e
-
-        scores = []
-        X = X.copy()
 
         X["outcome_score"] = outcome_score
         X.sort_values(by=["outcome_score"], inplace=True)
