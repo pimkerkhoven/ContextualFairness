@@ -1,5 +1,7 @@
 # TODO: copyright information
 
+import pandas as pd
+
 import functools
 import itertools
 
@@ -105,7 +107,10 @@ def contextual_fairness_score(norms, X, y_pred, y_pred_probas=None):
     result = X.copy()
 
     for norm in norms:
-        result.loc[:, norm.name] = norm(X, y_pred, outcome_scores)
+        result.loc[:, norm.name] = pd.Series(
+            norm(X, y_pred, outcome_scores), dtype="float64"
+        )
+
         result.loc[:, norm.name] = (
             result.loc[:, norm.name] * norm.weight / norm.normalizer(len(X))
         )
