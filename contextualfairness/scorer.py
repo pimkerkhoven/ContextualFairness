@@ -15,16 +15,13 @@ class Result:
     def total_score(self):
         return self.df["total"].sum()
 
-    def scaled_group_scores(self, attributes=None):
-        return self.group_scores(attributes, scaled=True)
-
     def group_scores(self, attributes, scaled=False):
         if len(attributes) == 0:
-            raise ValueError("Must specify at least one attribute")
+            raise ValueError("Must specify at least one attribute.")
 
         for attr in attributes:
             if attr not in self.df.columns:
-                raise ValueError(f"Colum with name `{attr}` does not exist in ....")
+                raise ValueError(f"Column with name `{attr}` does not exist in Result.")
 
         values = [sorted(self.df[attr].unique()) for attr in attributes]
         groups = itertools.product(*values)
@@ -35,7 +32,8 @@ class Result:
             group_name = ""
             for attr, val in zip(attributes, group):
                 indexer = indexer & (self.df[attr] == val)
-                group_name += f"{attr}={val}"
+                group_name += f"{attr}={val};"
+            group_name = group_name[:-1]
 
             result[group_name] = dict()
             result[group_name]["data"] = self.df[indexer]["total"].copy()
