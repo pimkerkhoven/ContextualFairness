@@ -86,7 +86,7 @@ def contexual_fairness_score(norms, X, y_pred, y_pred_probas=None):
         total_norm_weight += norm.weight
 
     if not total_norm_weight == 1:
-        raise ValueError("Norm weights must sum to one.")
+        raise ValueError("Norm weights must sum to 1.")
 
     if not len(X) == len(y_pred):
         raise ValueError("X and y_pred must have the same length.")
@@ -94,16 +94,13 @@ def contexual_fairness_score(norms, X, y_pred, y_pred_probas=None):
     if y_pred_probas is not None and not len(X) == len(y_pred_probas):
         raise ValueError("X and y_pred_probas must have the same length.")
 
-    if y_pred_probas is not None and not len(y_pred) == len(y_pred_probas):
-        raise ValueError("y_pred and y_pred_probas must have the same length.")
-
     outcome_scores = y_pred.copy() if y_pred_probas is None else y_pred_probas
 
     result = X.copy()
 
     for norm in norms:
         result.loc[:, norm.name] = norm(X, y_pred, outcome_scores)
-        result.loc[:, norm.name] *= (
+        result.loc[:, norm.name] = (
             result.loc[:, norm.name] * norm.weight / norm.normalizer(len(X))
         )
 
