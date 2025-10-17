@@ -42,19 +42,21 @@ class Result:
         if scaled:
             denominator = 0
             for group_name in result.keys():
-                denominator += result[group_name]["score"] / len(
-                    result[group_name]["data"]
-                )
+                if len(result[group_name]["data"]) > 0:
+                    denominator += result[group_name]["score"] / len(
+                        result[group_name]["data"]
+                    )
 
             for group_name in result.keys():
-                scaled_score = (
-                    (result[group_name]["score"] / len(result[group_name]["data"]))
-                    / denominator
-                ) * self.total_score()
-                ratio = scaled_score / result[group_name]["score"]
+                if len(result[group_name]["data"]) > 0:
+                    scaled_score = (
+                        (result[group_name]["score"] / len(result[group_name]["data"]))
+                        / denominator
+                    ) * self.total_score()
+                    ratio = scaled_score / result[group_name]["score"]
 
-                result[group_name]["data"] *= ratio
-                result[group_name]["score"] = scaled_score
+                    result[group_name]["data"] *= ratio
+                    result[group_name]["score"] = scaled_score
 
         return result
 

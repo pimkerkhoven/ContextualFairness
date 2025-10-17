@@ -100,3 +100,53 @@ def test_group_score_scaled_single_attribute(result_obj):
 
     assert sum(result["sex=F"]["data"]) == pytest.approx(result["sex=F"]["score"])
     assert sum(result["sex=M"]["data"]) == pytest.approx(result["sex=M"]["score"])
+
+
+def test_group_score_scaled_with_empty_group():
+    df = pd.DataFrame(
+        {
+            "sex": ["M", "M", "F", "M", "F", "M", "M", "F"],
+            "age": ["O", "O", "Y", "Y", "Y", "O", "Y", "Y"],
+            "total": [0.1, 0.05, 0.2, 0.3, 0.1, 0.025, 0.06, 0.02],
+        }
+    )
+
+    result_obj = Result(df)
+    result = result_obj.group_scores(["sex", "age"], scaled=True)
+
+    denominator = (0.2 + 0.1 + 0.02) / 3 + (0.1 + 0.05 + 0.025) / 3 + (0.3 + 0.06) / 2
+
+    assert "sex=F;age=O" in result
+    assert "sex=F;age=Y" in result
+    assert "sex=M;age=O" in result
+    assert "sex=M;age=Y" in result
+
+    assert result["sex=F;age=O"]["score"] == 0
+    assert result["sex=F;age=Y"]["score"] == (
+        ((0.2 + 0.1 + 0.02) / 3 / denominator) * 0.855
+    )
+
+    assert (
+        result["sex=M;age=O"]["score"]
+        == ((0.1 + 0.05 + 0.025) / 3 / denominator) * 0.855
+    )
+
+    assert result["sex=M;age=Y"]["score"] == ((0.3 + 0.06) / 2 / denominator) * 0.855
+
+    assert list(result["sex=F;age=O"]["data"].index.values) == []
+    assert list(result["sex=F;age=Y"]["data"].index.values) == [2, 4, 7]
+    assert list(result["sex=M;age=O"]["data"].index.values) == [0, 1, 5]
+    assert list(result["sex=M;age=Y"]["data"].index.values) == [3, 6]
+
+    assert sum(result["sex=F;age=O"]["data"]) == pytest.approx(
+        result["sex=F;age=O"]["score"]
+    )
+    assert sum(result["sex=F;age=Y"]["data"]) == pytest.approx(
+        result["sex=F;age=Y"]["score"]
+    )
+    assert sum(result["sex=M;age=O"]["data"]) == pytest.approx(
+        result["sex=M;age=O"]["score"]
+    )
+    assert sum(result["sex=M;age=Y"]["data"]) == pytest.approx(
+        result["sex=M;age=Y"]["score"]
+    )
