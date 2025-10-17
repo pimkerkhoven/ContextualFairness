@@ -65,10 +65,16 @@ class RankNorm:
         self.norm_function = norm_function
 
     def __call__(self, X, _, outcome_score):
-        scores = []
+        try:
+            X["norm_score"] = X.apply(self.norm_function, axis=1)
+        except Exception as e:
+            raise RuntimeError(
+                f"Error occured when applying norm_function for `{self.name}`."
+            ) from e
 
+        scores = []
         X = X.copy()
-        X["norm_score"] = X.apply(self.norm_function, axis=1)
+
         X["outcome_score"] = outcome_score
         X.sort_values(by=["outcome_score"], inplace=True)
 
@@ -76,21 +82,44 @@ class RankNorm:
         X_norm_sorted.sort_values(inplace=True, ascending=False)
 
         for i in range(len(X) - 1):
-            indices_j_to_n = X.iloc[i + 1 :].index
-            index_i = X.iloc[i : i + 1].index[0]
-            index_i_row_in_norms = X_norm_sorted.index.get_loc(index_i)
+            outcome_value_i = X.iloc[i]["outcome_score"]
+            outcome_ranking_offset = 1
 
-            norm_indices = X_norm_sorted.iloc[index_i_row_in_norms + 1 :].index
+            while (
+                i + outcome_ranking_offset < len(X)
+                and outcome_value_i
+                == X.iloc[i + outcome_ranking_offset]["outcome_score"]
+            ):
+                outcome_ranking_offset += 1
 
-            # print(norm_indices.intersection(indices_j_to_n))
+            higher_outcome_individuals = X.iloc[i + outcome_ranking_offset :].index
 
-            individual_score = len(norm_indices.intersection(indices_j_to_n))
+            # Map individual from outcome to norm value
+            outcome_rank_i = X.iloc[i : i + 1].index[0]
+            norm_value_rank_i = X_norm_sorted.index.get_loc(outcome_rank_i)
+
+            norm_value_i = X_norm_sorted.iloc[norm_value_rank_i]
+            norm_value_offset = 1
+
+            while (
+                norm_value_rank_i + norm_value_offset < len(X_norm_sorted)
+                and norm_value_i
+                == X_norm_sorted.iloc[norm_value_rank_i + norm_value_offset]
+            ):
+                norm_value_offset += 1
+
+            lower_norm_value_individuals = X_norm_sorted.iloc[
+                norm_value_rank_i + norm_value_offset :
+            ].index
+
+            individual_score = len(
+                lower_norm_value_individuals.intersection(higher_outcome_individuals)
+            )
 
             scores.append(individual_score)
 
         # Lowest outcome score always has score 0 (TODO: check claim)
         scores.append(0)
-        # print(scores)
         return pd.Series(scores, index=X.index)
 
     def normalizer(self, n):

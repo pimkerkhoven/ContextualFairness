@@ -1,7 +1,7 @@
 import pandas as pd
 
 from contextualfairness.scorer import contexual_fairness_score
-from contextualfairness.norms import BinaryClassificationEqualityNorm
+from contextualfairness.norms import BinaryClassificationEqualityNorm, RankNorm
 
 if __name__ == "__main__":
     ages = ["young", "young", "old", "young", "old"]
@@ -21,7 +21,7 @@ if __name__ == "__main__":
     def richer_is_better(x):
         return x["income"]
 
-    norms = [BinaryClassificationEqualityNorm(weight=1)]
+    norms = [BinaryClassificationEqualityNorm(0.5), RankNorm(0.5, richer_is_better)]
 
     scorer = contexual_fairness_score(
         norms=norms,
