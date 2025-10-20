@@ -2,7 +2,7 @@ import pytest
 
 import pandas as pd
 
-from contextualfairness.scorer import Result
+from contextualfairness.scorer import ContextualFairnessResult
 
 
 @pytest.fixture
@@ -15,7 +15,7 @@ def result_obj():
         }
     )
 
-    return Result(df)
+    return ContextualFairnessResult(df)
 
 
 def test_most_unfairly_treated(result_obj):
@@ -38,7 +38,10 @@ def test_group_scores_no_attrs(result_obj):
 def test_group_scores_non_existent_attr(result_obj):
     with pytest.raises(ValueError) as e1:
         result_obj.group_scores(["attr"])
-    assert str(e1.value) == "Column with name `attr` does not exist in Result."
+    assert (
+        str(e1.value)
+        == "Column with name `attr` does not exist in ContextualFairnessResult."
+    )
 
 
 def test_group_score_single_attribute(result_obj):
@@ -55,6 +58,10 @@ def test_group_score_single_attribute(result_obj):
 
     assert sum(result["sex=F"]["data"]) == result["sex=F"]["score"]
     assert sum(result["sex=M"]["data"]) == result["sex=M"]["score"]
+
+    assert result["sex=F"]["score"] + result["sex=M"]["score"] == pytest.approx(
+        result_obj.total_score()
+    )
 
 
 def test_group_score_two_attributes(result_obj):
@@ -80,6 +87,12 @@ def test_group_score_two_attributes(result_obj):
     assert sum(result["sex=M;age=O"]["data"]) == result["sex=M;age=O"]["score"]
     assert sum(result["sex=M;age=Y"]["data"]) == result["sex=M;age=Y"]["score"]
 
+    assert result["sex=F;age=O"]["score"] + result["sex=F;age=Y"]["score"] + result[
+        "sex=M;age=O"
+    ]["score"] + result["sex=M;age=Y"]["score"] == pytest.approx(
+        result_obj.total_score()
+    )
+
 
 def test_group_score_scaled_single_attribute(result_obj):
     result = result_obj.group_scores(["sex"], scaled=True)
@@ -101,6 +114,10 @@ def test_group_score_scaled_single_attribute(result_obj):
     assert sum(result["sex=F"]["data"]) == pytest.approx(result["sex=F"]["score"])
     assert sum(result["sex=M"]["data"]) == pytest.approx(result["sex=M"]["score"])
 
+    assert (
+        result["sex=F"]["score"] + result["sex=M"]["score"] == result_obj.total_score()
+    )
+
 
 def test_group_score_scaled_with_empty_group():
     df = pd.DataFrame(
@@ -111,7 +128,7 @@ def test_group_score_scaled_with_empty_group():
         }
     )
 
-    result_obj = Result(df)
+    result_obj = ContextualFairnessResult(df)
     result = result_obj.group_scores(["sex", "age"], scaled=True)
 
     denominator = (0.2 + 0.1 + 0.02) / 3 + (0.1 + 0.05 + 0.025) / 3 + (0.3 + 0.06) / 2
@@ -151,6 +168,14 @@ def test_group_score_scaled_with_empty_group():
         result["sex=M;age=Y"]["score"]
     )
 
+    assert (
+        result["sex=F;age=O"]["score"]
+        + result["sex=F;age=Y"]["score"]
+        + result["sex=M;age=O"]["score"]
+        + result["sex=M;age=Y"]["score"]
+        == result_obj.total_score()
+    )
+
 
 def test_group_score_scaled_with_group_with_score_of_0():
     df = pd.DataFrame(
@@ -165,10 +190,18 @@ def test_group_score_scaled_with_group_with_score_of_0():
         }
     )
 
-    result_obj = Result(df)
+    result_obj = ContextualFairnessResult(df)
     result = result_obj.group_scores(["sex", "age"], scaled=True)
 
     assert result["sex=female;age=old"]["data"].notna().all()
     assert result["sex=female;age=young"]["data"].notna().all()
     assert result["sex=male;age=old"]["data"].notna().all()
     assert result["sex=male;age=young"]["data"].notna().all()
+
+    assert (
+        result["sex=female;age=old"]["score"]
+        + result["sex=female;age=young"]["score"]
+        + result["sex=male;age=old"]["score"]
+        + result["sex=male;age=young"]["score"]
+        == result_obj.total_score()
+    )

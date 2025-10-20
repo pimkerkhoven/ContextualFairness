@@ -4,70 +4,91 @@ import itertools
 
 
 # TODO: add documentation
-class Result:
-    """
-    Contains the results for ...
+class ContextualFairnessResult:
+    """Results for contextual fairness
+    This class stores the results for the calculations of contextual fairness
+    for a specific instances. It provides methods for calculating common
+    metrics. As well as access to the dataframe containing the results.
 
-    Attributes
+    Parameters
     ----------
     df : pandas.DataFrame
-        ...
+        DataFrame containing the results of contextual fairness.
     """
 
     def __init__(self, df):
         self.df = df
 
-    def most_unfairly_treated(self, n_individuals=10):
-        """
-        ...
+    def most_unfairly_treated(self, n_samples=10):
+        """Retrieve the n_samples with the highest total score.
 
         Parameters
         ----------
-        n_individuals : int
+        n_samples : int
+            Number of samples to include in result.
 
         Returns
         -------
         pandas.DataFrame
-            The first n_individuals with the highest total score
+            The n_samples with the highest total score.
         """
-        return self.df.sort_values(by=["total"], ascending=False).head(n_individuals)
+        return self.df.sort_values(by=["total"], ascending=False).head(n_samples)
 
     def total_score(self):
-        """
-        ...
+        """Retrieve the total contextual fairness score
 
         Returns
         -------
         np.float64
-            ...
+            The sum of the contextual fairness score for each sample.
 
         """
         return self.df["total"].sum()
 
     def group_scores(self, attributes, scaled=False):
-        """
-        ...
+        """Calculate the contextual fairness score for each group based on a
+        list of attributes defining the groups.
+
+        The considered groups are based on the product of the values for each
+        attribute in the result. For example, suppose the attributes are 'sex'
+        and 'age', and the values in the result are 'male' and 'female' for
+        'sex' and 'young' and 'old' for 'age', the considered groups are:
+            - 'male',   'old'
+            - 'male',   'young'
+            - 'female', 'old'
+            - 'female', 'young'
+
+        The score for each group can either be unscaled or scaled. When
+        unscaled the score for each group is simply the sum of the scores for
+        each sample belonging to the group. When scaled the score for each
+        group is scaled relative to the number of samples belonging to the
+        group. This scaling is done such that the sum of the scores for each
+        group still sums to the total score.
 
         Parameters
         ----------
         attributes : list[str]
-            ...
+            Attributes used for defining the groups.
 
         scaled : boolean, default=False
+            Flag stating whether the score is scaled or not.
 
         Returns
         -------
         dict
-            Contains a key for each group that is generated based on the specified attributes (e.g. sex=male;age=young).
-            For each group, a contextual fairness
-
+            Contains a key for each group that is generated based on the specified
+            attributes (e.g. sex=male;age=young). For each group, a dict is
+            defined containing the contextual fairness "score" and the "data"
+            containg the samples that belong to the group.
         """
         if len(attributes) == 0:
             raise ValueError("Must specify at least one attribute.")
 
         for attr in attributes:
             if attr not in self.df.columns:
-                raise ValueError(f"Column with name `{attr}` does not exist in Result.")
+                raise ValueError(
+                    f"Column with name `{attr}` does not exist in ContextualFairnessResult."
+                )
 
         values = [sorted(self.df[attr].unique()) for attr in attributes]
         groups = itertools.product(*values)
@@ -121,25 +142,22 @@ def contextual_fairness_score(norms, X, y_pred, y_pred_probas=None):
     norms : list[Norm]
         Norms used in calculating the contextual fairness score.
 
-    X : pandas.Dataframe
-        ...
+    X : pandas.Dataframe of shape (n_samples, _)
+        The samples for which contextual fairness is calculated.
 
-    y_pred : iterable
-        ...
+    y_pred : array-like of shape (n_samples)
+        The predictions for the samples.
 
-    y_pred_probas : iterable, default=None
-        ...
-        If None y_pred_probas will be set to be y_pred (useful for regression).
+    y_pred_probas : array-like of shape (n_samples), default=None
+        The probabilities for each sample being predicted a specific class,
+        usually this is the positive class. In case of regression, not
+        specifying y_pred_probas will result in setting y_pred_probas equal to
+        y_pred.
 
 
     Returns
     -------
-    Result
-        ...
-
-    Examples?
-    --------
-
+    ContextualFairnessResult
     """
     if len(norms) < 1:
         raise ValueError("Must specify at least one norm.")
@@ -177,4 +195,4 @@ def contextual_fairness_score(norms, X, y_pred, y_pred_probas=None):
 
     result_df["total"] = result_df[(norm.name for norm in norms)].sum(axis=1)
 
-    return Result(result_df)
+    return ContextualFairnessResult(result_df)

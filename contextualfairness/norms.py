@@ -34,12 +34,22 @@ class BinaryClassificationEqualityNorm:
         The (human-readable) name of the norm.
     """
 
-    def __init__(self, weight, positive_class_value=None):
+    def __init__(
+        self,
+        weight,
+        positive_class_value=None,
+    ):
         self.weight = weight
         self.name = "Equality"
         self.positive_class_value = positive_class_value
 
-    def __call__(self, X, y_pred, _, normalize=True):
+    def __call__(
+        self,
+        X,
+        y_pred,
+        _,
+        normalize=True,
+    ):
         """Calculate the equality score for each sample in X given binary
         classification predictions y_pred.
 
@@ -55,7 +65,7 @@ class BinaryClassificationEqualityNorm:
             Not applicable for equality norm
 
         normalize : bool, default=True
-            Flag that states wheter or not the score is normalized based on
+            Flag that states whether or not the score is normalized based on
             n_samples.
 
         Returns
@@ -63,7 +73,10 @@ class BinaryClassificationEqualityNorm:
         pd.Series of shape (n_samples,)
             The equality score (0 or 1) for each sample in X.
         """
-        values, counts = np.unique(y_pred, return_counts=True)
+        values, counts = np.unique(
+            y_pred,
+            return_counts=True,
+        )
 
         if len(values) > 2:
             raise ValueError(
@@ -77,7 +90,8 @@ class BinaryClassificationEqualityNorm:
             reference_class = self.positive_class_value
 
         result = pd.Series(
-            [0 if y == reference_class else 1 for y in y_pred], index=X.index
+            [0 if y == reference_class else 1 for y in y_pred],
+            index=X.index,
         )
 
         if normalize:
@@ -126,7 +140,13 @@ class RegressionEqualityNorm:
 
         self._normalizer_val = None
 
-    def __call__(self, X, y_pred, _, normalize=True):
+    def __call__(
+        self,
+        X,
+        y_pred,
+        _,
+        normalize=True,
+    ):
         """Calculate the equality score for each sample in X given regression
         predictions y_pred.
 
@@ -143,7 +163,7 @@ class RegressionEqualityNorm:
             Not applicable for equality norm.
 
         normalize : bool, default=True
-            Flag that states wheter or not the score is normalized based on
+            Flag that states whether or not the score is normalized based on
             n_samples.
 
         Returns
@@ -154,7 +174,10 @@ class RegressionEqualityNorm:
         y_max = np.max(y_pred)
         self._normalizer_val = abs(y_max - np.min(y_pred))
 
-        result = pd.Series([abs(v - y_max) for v in y_pred], index=X.index)
+        result = pd.Series(
+            [abs(v - y_max) for v in y_pred],
+            index=X.index,
+        )
         if normalize:
             return result / self._normalizer(len(X))
 
@@ -204,12 +227,23 @@ class RankNorm:
         The name of the norm, if None the name of the norm function will be used.
     """
 
-    def __init__(self, weight, norm_function, name=None):
+    def __init__(
+        self,
+        weight,
+        norm_function,
+        name=None,
+    ):
         self.weight = weight
         self.name = name if name is not None else norm_function.__name__
         self.norm_function = norm_function
 
-    def __call__(self, X, _, outcome_scores, normalize=True):
+    def __call__(
+        self,
+        X,
+        _,
+        outcome_scores,
+        normalize=True,
+    ):
         """Calculate the rank score for each sample in X given the
         outcome_scores and the norm_function.
 
@@ -225,7 +259,7 @@ class RankNorm:
             The outcome scores for the samples in X.
 
         normalize : bool, default=True
-            Flag that states wheter or not the score is normalized based on
+            Flag that states whether or not the score is normalized based on
             n_samples.
 
         Returns
@@ -237,17 +271,26 @@ class RankNorm:
         X = X.copy()
 
         try:
-            X["norm_score"] = X.apply(self.norm_function, axis=1)
+            X["norm_score"] = X.apply(
+                self.norm_function,
+                axis=1,
+            )
         except Exception as e:
             raise RuntimeError(
                 f"Error occured when applying norm_function for `{self.name}`."
             ) from e
 
         X["outcome_scores"] = outcome_scores
-        X.sort_values(by=["outcome_scores"], inplace=True)
+        X.sort_values(
+            by=["outcome_scores"],
+            inplace=True,
+        )
 
         X_norm_sorted = X["norm_score"].copy()
-        X_norm_sorted.sort_values(inplace=True, ascending=False)
+        X_norm_sorted.sort_values(
+            inplace=True,
+            ascending=False,
+        )
 
         for i in range(len(X) - 1):
             outcome_value_i = X.iloc[i]["outcome_scores"]
@@ -289,7 +332,10 @@ class RankNorm:
         # Lowest outcome score always has score 0 (TODO: check claim)
         scores.append(0)
 
-        result = pd.Series(scores, index=X.index)
+        result = pd.Series(
+            scores,
+            index=X.index,
+        )
 
         if normalize:
             return result / self._normalizer(len(X))
