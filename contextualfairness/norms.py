@@ -1,4 +1,5 @@
-# TODO: copyright information
+# Copyright (c) ContextualFairness contributors.
+# Licensed under the MIT License.
 
 import math
 

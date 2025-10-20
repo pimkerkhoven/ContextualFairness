@@ -1,9 +1,9 @@
-# TODO: copyright information
+# Copyright (c) ContextualFairness contributors.
+# Licensed under the MIT License.
 
 import itertools
 
 
-# TODO: add documentation
 class ContextualFairnessResult:
     """Results for contextual fairness
     This class stores the results for the calculations of contextual fairness

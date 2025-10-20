@@ -1,3 +1,6 @@
+# Copyright (c) ContextualFairness contributors.
+# Licensed under the MIT License.
+
 import pytest
 
 import pandas as pd
