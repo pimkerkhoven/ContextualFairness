@@ -167,13 +167,13 @@ def contextual_fairness_score(norms, X, y_pred, y_pred_probas=None):
     result_df = X.copy()
 
     for norm in norms:
-        result_df.loc[:, norm.name] = norm(X, y_pred, outcome_scores)
+        r = norm(X, y_pred, outcome_scores, normalize=True)
+        print(r)
+        result_df[norm.name] = r
+
         result_df[norm.name] = result_df[norm.name].astype("float64")
 
-        # Normalize results for each norm and scale by norm weight
-        result_df.loc[:, norm.name] = (
-            result_df.loc[:, norm.name] / norm.normalizer(len(X))
-        ) * norm.weight
+        result_df[norm.name] = result_df.loc[:, norm.name] * norm.weight
 
     result_df["total"] = result_df[(norm.name for norm in norms)].sum(axis=1)
 

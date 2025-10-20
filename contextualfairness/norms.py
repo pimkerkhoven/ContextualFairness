@@ -8,29 +8,30 @@ import pandas as pd
 
 class BinaryClassificationEqualityNorm:
     """Equality norm for binary classification tasks
-    ...
+    This class is used for calculating the equality score for each sample in
+    a dataset given the binary classification prediction for each sample.
+
+    The score for a sample is either 0 or 1, based on whether the prediction
+    for the sample is respectively equal or not equal to the majority class or
+    a user-defined positive class.
 
     Parameters
     ----------
     weight : float
-        ...
+        The weight used for weighing the scores for this norm when calculating
+        the total score. Must be between 0 and 1.
 
     positive_class_value : obj, default=None
-        ...
+        The value of the class that is considered to be the postive class,
+        i.e., the class that people want to be predicted. For example, in a
+        loan approval setting with outcomes True (get the loan) and False
+        (not getting the loan), True would (usually) be considerd the postive
+        outcome.
 
     Attributes
     ----------
-    weight : float
-        ...
-
     name : str
-        ...
-
-    positive_class_value : obj
-        ...
-
-    Examples
-    --------
+        The (human-readable) name of the norm.
     """
 
     def __init__(self, weight, positive_class_value=None):
@@ -38,23 +39,29 @@ class BinaryClassificationEqualityNorm:
         self.name = "Equality"
         self.positive_class_value = positive_class_value
 
-    def __call__(self, X, y_pred, _):
-        """
-        ...
+    def __call__(self, X, y_pred, _, normalize=True):
+        """Calculate the equality score for each sample in X given binary
+        classification predictions y_pred.
 
         Parameters
         ----------
-        X : pandas.DataFrame
+        X : pandas.DataFrame of shape (n_samples, _)
+            The samples for which the equality score is calculated.
 
-        y_pred : array-like
+        y_pred : array-like of shape (n_samples,)
+            The binary classification predictions for the samples in X.
 
-        _ :
-            Not
+        _ : obj
+            Not applicable for equality norm
+
+        normalize : bool, default=True
+            Flag that states wheter or not the score is normalized based on
+            n_samples.
 
         Returns
         -------
-        list[int]
-            ....
+        pd.Series of shape (n_samples,)
+            The equality score (0 or 1) for each sample in X.
         """
         values, counts = np.unique(y_pred, return_counts=True)
 
@@ -69,21 +76,16 @@ class BinaryClassificationEqualityNorm:
         else:
             reference_class = self.positive_class_value
 
-        return [0 if y == reference_class else 1 for y in y_pred]
+        result = pd.Series(
+            [0 if y == reference_class else 1 for y in y_pred], index=X.index
+        )
 
-    def normalizer(self, n):
-        """
-        ...
+        if normalize:
+            return result / self._normalizer(len(X))
 
-        Parameters
-        ----------
-        n : int
+        return result
 
-        Returns
-        -------
-        int
-            ....
-        """
+    def _normalizer(self, n):
         if self.positive_class_value is None:
             return math.floor(n / 2)
 
@@ -92,27 +94,30 @@ class BinaryClassificationEqualityNorm:
 
 class RegressionEqualityNorm:
     """Equality norm for regression tasks
-    ...
+    This class is used for calculating the equality score for each sample in
+    a dataset given the regression prediction for each sample.
+
+    Equality is defined as all samples having the maximum prediction in
+    y_pred. Therefore, the equality score for a sample is the (absolute)
+    difference between the prediction for a sample and max(y_pred).
 
     Parameters
     ----------
     weight : float
+        The weight used for weighing the scores for this norm when calculating
+        the total score. Must be between 0 and 1.
 
-    positive_class
-
+    positive_class_value : obj, default=None
+        The value of the class that is considered to be the postive class,
+        i.e., the class that people want to be predicted. For example, in a
+        loan approval setting with outcomes True (get the loan) and False
+        (not getting the loan), True would (usually) be considerd the postive
+        outcome.
 
     Attributes
     ----------
-    weight : float
-        ..
-
     name : str
-
-
-    positive_class_value : obj, default=None
-
-    Examples
-    --------
+        The (human-readable) name of the norm.
     """
 
     def __init__(self, weight):
@@ -121,79 +126,82 @@ class RegressionEqualityNorm:
 
         self._normalizer_val = None
 
-    def __call__(self, X, y_pred, _):
-        """
-        ...
+    def __call__(self, X, y_pred, _, normalize=True):
+        """Calculate the equality score for each sample in X given regression
+        predictions y_pred.
+
 
         Parameters
         ----------
-        X : pandas.DataFrame
+        X : pandas.DataFrame of shape (n_samples, _)
+            The samples for which the equality score is calculated.
 
-        y_pred : array-like
+        y_pred : array-like of shape (n_samples,)
+            The regression predictions for the samples in X.
 
-        _ :
-            Not
+        _ : obj
+            Not applicable for equality norm.
+
+        normalize : bool, default=True
+            Flag that states wheter or not the score is normalized based on
+            n_samples.
 
         Returns
         -------
-        list[float]
-            ....
+        pd.Series of shape (n_samples,)
+            The equality score for each sample in X.
         """
         y_max = np.max(y_pred)
         self._normalizer_val = abs(y_max - np.min(y_pred))
 
-        return [abs(v - y_max) for v in y_pred]
+        result = pd.Series([abs(v - y_max) for v in y_pred], index=X.index)
+        if normalize:
+            return result / self._normalizer(len(X))
 
-    def normalizer(self, n):
-        """
-        Calculate normalization factor for equality norm in a regression setting.
+        return result
 
-        Parameters
-        ----------
-        n : int
-
-        Returns
-        -------
-        int
-            ....
-        """
+    def _normalizer(self, n):
         if self._normalizer_val is None:
             raise RuntimeError(
                 "Regression equality norm must have been called at least once before being able to compute normalizer."
             )
 
-        # print(n, self._normalizer_val)
         return n * self._normalizer_val
 
 
 class RankNorm:
     """Rank norm
-    ...
+    This class is used for calculating the rank norm score for each sample in
+    a dataset given a ranking based on predictions (outcome ranking) of a model
+    and a function for ranking each sample with respect to a certain norm (norm
+    ranking). An example of such a norm is equity, which, in a specific context,
+    could mean ranking individuals on income.
+
+    The outcome ranking ranks all samples based on the predicitions of a model,
+    for example, the probability of being predicted the positive class in a
+    binary classification setting or the predictions of a regression model.
+
+    The norm ranking ranks all samples based on a specific function for a norm.
+    This function calculates a norm score for each sample, e.g., income.
+
+    To calculate a score for a sample, for each sample we find the number of
+    samples that are ranked lower on the norm ranking but higher on the outcome
+    ranking. When summing the results for all samples, this is equivalent to
+    calculating the kendall-tau distance between the two rankings.
 
     Parameters
     ----------
     weight : float
+        The weight used for weighing the scores for this norm
+        when calculating the total score. Must be between 0 and 1.
 
     norm_function : Callable
+        Function to calculate the norm score for a sample. Takes a sample as
+        input and returns a value that can be sorted in order to create the
+        norm ranking
 
     name : str, default=None
-
-
-    Attributes
-    ----------
-    weight : float
-        ...
-
-    norm_function : Callable
-        ...
-
-
-    name : str
-        ...
-
-
-    Examples
-    --------
+        The name of the norm, if None the name of the norm function will be used.
     """
 
     def __init__(self, weight, norm_function, name=None):
@@ -201,23 +209,29 @@ class RankNorm:
         self.name = name if name is not None else norm_function.__name__
         self.norm_function = norm_function
 
-    def __call__(self, X, _, outcome_scores):
-        """
-        ...
+    def __call__(self, X, _, outcome_scores, normalize=True):
+        """Calculate the rank score for each sample in X given the
+        outcome_scores and the norm_function.
 
         Parameters
         ----------
-        X : pandas.DataFrame
+        X : pandas.DataFrame of shape (n_samples, _)
+            The samples for which the rank score is calculated.
 
-        _ :
+        _ : obj
+            Not applicable for rank norm.
 
-        outcomes_scores : array-like
+        outcome_scores : array-like of shape (n_samples,)
+            The outcome scores for the samples in X.
 
+        normalize : bool, default=True
+            Flag that states wheter or not the score is normalized based on
+            n_samples.
 
         Returns
         -------
-        pd.Series
-            ....
+        pd.Series of shape (n_samples,)
+            The rank score for each sample in X.
         """
         scores = []
         X = X.copy()
@@ -274,7 +288,13 @@ class RankNorm:
 
         # Lowest outcome score always has score 0 (TODO: check claim)
         scores.append(0)
-        return pd.Series(scores, index=X.index)
 
-    def normalizer(self, n):
+        result = pd.Series(scores, index=X.index)
+
+        if normalize:
+            return result / self._normalizer(len(X))
+
+        return result
+
+    def _normalizer(self, n):
         return n * (n - 1) / 2

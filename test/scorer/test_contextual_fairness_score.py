@@ -95,6 +95,8 @@ def test_result_is_correct():
         "total",
     ]
 
+    print(result)
+
     assert result["Equality"]["A"] == 0
     assert result["Equality"]["B"] == 0
     assert result["Equality"]["C"] == 0.125
