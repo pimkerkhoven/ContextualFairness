@@ -1,21 +1,67 @@
 # TODO: copyright information
 
-import functools
 import itertools
 
 
 # TODO: add documentation
 class Result:
+    """
+    Contains the results for ...
+
+    Attributes
+    ----------
+    df : pandas.DataFrame
+        ...
+    """
+
     def __init__(self, df):
         self.df = df
 
     def most_unfairly_treated(self, n_individuals=10):
+        """
+        ...
+
+        Parameters
+        ----------
+        n_individuals : int
+
+        Returns
+        -------
+        pandas.DataFrame
+            The first n_individuals with the highest total score
+        """
         return self.df.sort_values(by=["total"], ascending=False).head(n_individuals)
 
     def total_score(self):
+        """
+        ...
+
+        Returns
+        -------
+        np.float64
+            ...
+
+        """
         return self.df["total"].sum()
 
     def group_scores(self, attributes, scaled=False):
+        """
+        ...
+
+        Parameters
+        ----------
+        attributes : list[str]
+            ...
+
+        scaled : boolean, default=False
+
+        Returns
+        -------
+        dict
+            Contains a key for each group that is generated based on the specified attributes (e.g. sex=male;age=young).
+            For each group, a contextual fairness
+
+        """
         if len(attributes) == 0:
             raise ValueError("Must specify at least one attribute.")
 
@@ -66,14 +112,30 @@ class Result:
 
 
 def contextual_fairness_score(norms, X, y_pred, y_pred_probas=None):
-    """Calculate the contexual fairness scores.
+    """
+    Calculate the contexual fairness scores.
     TODO: description
 
     Parameters
     ----------
+    norms : list[Norm]
+        Norms used in calculating the contextual fairness score.
+
+    X : pandas.Dataframe
+        ...
+
+    y_pred : iterable
+        ...
+
+    y_pred_probas : iterable, default=None
+        ...
+        If None y_pred_probas will be set to be y_pred (useful for regression).
+
 
     Returns
     -------
+    Result
+        ...
 
     Examples?
     --------
@@ -102,18 +164,17 @@ def contextual_fairness_score(norms, X, y_pred, y_pred_probas=None):
 
     outcome_scores = y_pred.copy() if y_pred_probas is None else y_pred_probas
 
-    result = X.copy()
+    result_df = X.copy()
 
     for norm in norms:
-        result.loc[:, norm.name] = norm(X, y_pred, outcome_scores)
-        result[norm.name] = result[norm.name].astype("float64")
+        result_df.loc[:, norm.name] = norm(X, y_pred, outcome_scores)
+        result_df[norm.name] = result_df[norm.name].astype("float64")
 
-        result.loc[:, norm.name] = (
-            result.loc[:, norm.name] * norm.weight / norm.normalizer(len(X))
-        )
+        # Normalize results for each norm and scale by norm weight
+        result_df.loc[:, norm.name] = (
+            result_df.loc[:, norm.name] / norm.normalizer(len(X))
+        ) * norm.weight
 
-    result.loc[:, "total"] = functools.reduce(
-        lambda a, b: a + b, [result[norm.name] for norm in norms]
-    )
+    result_df["total"] = result_df[(norm.name for norm in norms)].sum(axis=1)
 
-    return Result(result)
+    return Result(result_df)

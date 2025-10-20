@@ -7,12 +7,55 @@ import pandas as pd
 
 
 class BinaryClassificationEqualityNorm:
+    """Equality norm for binary classification tasks
+    ...
+
+    Parameters
+    ----------
+    weight : float
+        ...
+
+    positive_class_value : obj, default=None
+        ...
+
+    Attributes
+    ----------
+    weight : float
+        ...
+
+    name : str
+        ...
+
+    positive_class_value : obj
+        ...
+
+    Examples
+    --------
+    """
+
     def __init__(self, weight, positive_class_value=None):
         self.weight = weight
         self.name = "Equality"
         self.positive_class_value = positive_class_value
 
     def __call__(self, X, y_pred, _):
+        """
+        ...
+
+        Parameters
+        ----------
+        X : pandas.DataFrame
+
+        y_pred : array-like
+
+        _ :
+            Not
+
+        Returns
+        -------
+        list[int]
+            ....
+        """
         values, counts = np.unique(y_pred, return_counts=True)
 
         if len(values) > 2:
@@ -29,6 +72,18 @@ class BinaryClassificationEqualityNorm:
         return [0 if y == reference_class else 1 for y in y_pred]
 
     def normalizer(self, n):
+        """
+        ...
+
+        Parameters
+        ----------
+        n : int
+
+        Returns
+        -------
+        int
+            ....
+        """
         if self.positive_class_value is None:
             return math.floor(n / 2)
 
@@ -36,6 +91,30 @@ class BinaryClassificationEqualityNorm:
 
 
 class RegressionEqualityNorm:
+    """Equality norm for regression tasks
+    ...
+
+    Parameters
+    ----------
+    weight : float
+
+    positive_class
+
+
+    Attributes
+    ----------
+    weight : float
+        ..
+
+    name : str
+
+
+    positive_class_value : obj, default=None
+
+    Examples
+    --------
+    """
+
     def __init__(self, weight):
         self.weight = weight
         self.name = "Equality"
@@ -43,12 +122,41 @@ class RegressionEqualityNorm:
         self._normalizer_val = None
 
     def __call__(self, X, y_pred, _):
+        """
+        ...
+
+        Parameters
+        ----------
+        X : pandas.DataFrame
+
+        y_pred : array-like
+
+        _ :
+            Not
+
+        Returns
+        -------
+        list[float]
+            ....
+        """
         y_max = np.max(y_pred)
         self._normalizer_val = abs(y_max - np.min(y_pred))
 
         return [abs(v - y_max) for v in y_pred]
 
     def normalizer(self, n):
+        """
+        Calculate normalization factor for equality norm in a regression setting.
+
+        Parameters
+        ----------
+        n : int
+
+        Returns
+        -------
+        int
+            ....
+        """
         if self._normalizer_val is None:
             raise RuntimeError(
                 "Regression equality norm must have been called at least once before being able to compute normalizer."
@@ -59,12 +167,58 @@ class RegressionEqualityNorm:
 
 
 class RankNorm:
+    """Rank norm
+    ...
+
+    Parameters
+    ----------
+    weight : float
+
+    norm_function : Callable
+
+    name : str, default=None
+
+
+    Attributes
+    ----------
+    weight : float
+        ...
+
+    norm_function : Callable
+        ...
+
+
+    name : str
+        ...
+
+
+    Examples
+    --------
+    """
+
     def __init__(self, weight, norm_function, name=None):
         self.weight = weight
         self.name = name if name is not None else norm_function.__name__
         self.norm_function = norm_function
 
-    def __call__(self, X, _, outcome_score):
+    def __call__(self, X, _, outcome_scores):
+        """
+        ...
+
+        Parameters
+        ----------
+        X : pandas.DataFrame
+
+        _ :
+
+        outcomes_scores : array-like
+
+
+        Returns
+        -------
+        pd.Series
+            ....
+        """
         scores = []
         X = X.copy()
 
@@ -75,20 +229,20 @@ class RankNorm:
                 f"Error occured when applying norm_function for `{self.name}`."
             ) from e
 
-        X["outcome_score"] = outcome_score
-        X.sort_values(by=["outcome_score"], inplace=True)
+        X["outcome_scores"] = outcome_scores
+        X.sort_values(by=["outcome_scores"], inplace=True)
 
         X_norm_sorted = X["norm_score"].copy()
         X_norm_sorted.sort_values(inplace=True, ascending=False)
 
         for i in range(len(X) - 1):
-            outcome_value_i = X.iloc[i]["outcome_score"]
+            outcome_value_i = X.iloc[i]["outcome_scores"]
             outcome_ranking_offset = 1
 
             while (
                 i + outcome_ranking_offset < len(X)
                 and outcome_value_i
-                == X.iloc[i + outcome_ranking_offset]["outcome_score"]
+                == X.iloc[i + outcome_ranking_offset]["outcome_scores"]
             ):
                 outcome_ranking_offset += 1
 
