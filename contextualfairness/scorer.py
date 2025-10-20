@@ -133,9 +133,11 @@ class ContextualFairnessResult:
 
 
 def contextual_fairness_score(norms, X, y_pred, y_pred_probas=None):
-    """
-    Calculate the contexual fairness scores.
-    TODO: description
+    """Calculate contexual fairness scores for each sample.
+    This function calculates the contextual fairness for each sample in X by
+    first calculating score for each norm. Then, the total contextual fairness
+    score for a sample is calculated by taking the weighted sum of the scores
+    for each norm.
 
     Parameters
     ----------
@@ -145,10 +147,10 @@ def contextual_fairness_score(norms, X, y_pred, y_pred_probas=None):
     X : pandas.Dataframe of shape (n_samples, _)
         The samples for which contextual fairness is calculated.
 
-    y_pred : array-like of shape (n_samples)
+    y_pred : array-like of shape (n_samples,)
         The predictions for the samples.
 
-    y_pred_probas : array-like of shape (n_samples), default=None
+    y_pred_probas : array-like of shape (n_samples,), default=None
         The probabilities for each sample being predicted a specific class,
         usually this is the positive class. In case of regression, not
         specifying y_pred_probas will result in setting y_pred_probas equal to
