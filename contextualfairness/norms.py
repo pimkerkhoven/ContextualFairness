@@ -17,10 +17,6 @@ class BinaryClassificationEqualityNorm:
 
     Parameters
     ----------
-    weight : float
-        The weight used for weighing the scores for this norm when calculating
-        the total score. Must be between 0 and 1.
-
     positive_class_value : obj, default=None
         The value of the class that is considered to be the postive class,
         i.e., the class that people want to be predicted. For example, in a
@@ -36,10 +32,8 @@ class BinaryClassificationEqualityNorm:
 
     def __init__(
         self,
-        weight,
         positive_class_value=None,
     ):
-        self.weight = weight
         self.name = "Equality"
         self.positive_class_value = positive_class_value
 
@@ -117,10 +111,6 @@ class RegressionEqualityNorm:
 
     Parameters
     ----------
-    weight : float
-        The weight used for weighing the scores for this norm when calculating
-        the total score. Must be between 0 and 1.
-
     positive_class_value : obj, default=None
         The value of the class that is considered to be the postive class,
         i.e., the class that people want to be predicted. For example, in a
@@ -134,8 +124,7 @@ class RegressionEqualityNorm:
         The (human-readable) name of the norm.
     """
 
-    def __init__(self, weight):
-        self.weight = weight
+    def __init__(self):
         self.name = "Equality"
 
         self._normalizer_val = None
@@ -214,10 +203,6 @@ class RankNorm:
 
     Parameters
     ----------
-    weight : float
-        The weight used for weighing the scores for this norm
-        when calculating the total score. Must be between 0 and 1.
-
     norm_function : Callable
         Function to calculate the norm score for a sample. Takes a sample as
         input and returns a value that can be sorted in order to create the
@@ -229,11 +214,9 @@ class RankNorm:
 
     def __init__(
         self,
-        weight,
         norm_function,
         name=None,
     ):
-        self.weight = weight
         self.name = name if name is not None else norm_function.__name__
         self.norm_function = norm_function
 

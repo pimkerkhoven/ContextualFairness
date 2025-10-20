@@ -9,7 +9,7 @@ def test_rank_normalizer():
     def dummy_norm_function(x):
         x["attr"]
 
-    norm = RankNorm(1, dummy_norm_function)
+    norm = RankNorm(dummy_norm_function)
 
     assert norm._normalizer(300) == 44_850
 
@@ -24,7 +24,7 @@ def test_rank_call_norm_function_call_non_existent_attribute():
     data = pd.DataFrame(data={"attr": [10, 5, 2]})
     outcome_scores = [1, 2, 3]
 
-    norm = RankNorm(1, dummy_norm_function)
+    norm = RankNorm(dummy_norm_function)
 
     with pytest.raises(Exception) as e1:
         norm(data, None, outcome_scores)
@@ -45,7 +45,7 @@ def test_rank_call_three_items():
     data = pd.DataFrame(data={"attr": [10, 5, 2]}, index=["A", "B", "C"])
     outcome_scores = [1, 2, 3]
 
-    norm = RankNorm(1, attr_norm_function)
+    norm = RankNorm(attr_norm_function)
     result = norm(data, None, outcome_scores)
 
     assert result["A"] == 2 / 3
@@ -60,7 +60,7 @@ def test_rank_call_three_items_no_normalize():
     data = pd.DataFrame(data={"attr": [10, 5, 2]}, index=["A", "B", "C"])
     outcome_scores = [1, 2, 3]
 
-    norm = RankNorm(1, attr_norm_function)
+    norm = RankNorm(attr_norm_function)
     result = norm(data, None, outcome_scores, normalize=False)
 
     assert result["A"] == 2
@@ -75,7 +75,7 @@ def test_rank_call_four_items():
     data = pd.DataFrame(data={"attr": [10, 5, 2, 1]}, index=["A", "B", "C", "D"])
     outcome_scores = [3, 1, 2, 4]
 
-    norm = RankNorm(1, attr_norm_function)
+    norm = RankNorm(attr_norm_function)
     result = norm(data, None, outcome_scores)
 
     assert result.equals(
@@ -90,7 +90,7 @@ def test_rank_call_equal_attrs():
     data = pd.DataFrame(data={"attr": [10, 5, 5, 1]}, index=["A", "B", "C", "D"])
     outcome_scores = [3, 1, 2, 4]
 
-    norm = RankNorm(1, attr_norm_function)
+    norm = RankNorm(attr_norm_function)
     result = norm(data, None, outcome_scores)
 
     assert result.equals(
@@ -105,7 +105,7 @@ def test_rank_call_equal_outcome():
     data = pd.DataFrame(data={"attr": [10, 5, 2, 1]}, index=["A", "B", "C", "D"])
     outcome_scores = [3, 2, 2, 4]
 
-    norm = RankNorm(1, attr_norm_function)
+    norm = RankNorm(attr_norm_function)
     result = norm(data, None, outcome_scores)
 
     assert result.equals(
@@ -123,7 +123,7 @@ def test_rank_call_eight_items_trivial():
     )
     outcome_scores = [8, 7, 6, 5, 4, 3, 2, 1]
 
-    norm = RankNorm(1, attr_norm_function)
+    norm = RankNorm(attr_norm_function)
     result = norm(data, None, outcome_scores)
 
     assert result.equals(
@@ -144,7 +144,7 @@ def test_rank_call_eight_items_complex():
     )
     outcome_scores = [6, 8, 3, 4, 3, 6, 5, 2]
 
-    norm = RankNorm(1, attr_norm_function)
+    norm = RankNorm(attr_norm_function)
     result = norm(data, None, outcome_scores)
 
     assert result.equals(
@@ -165,7 +165,7 @@ def test_rank_call_non_numerical_norm_function():
     )
     outcome_scores = [6, 8, 3, 4, 3, 6, 5, 2]
 
-    norm = RankNorm(1, attr_norm_function)
+    norm = RankNorm(attr_norm_function)
     result = norm(data, None, outcome_scores)
 
     assert result.equals(

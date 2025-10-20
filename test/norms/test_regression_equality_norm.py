@@ -6,7 +6,7 @@ from contextualfairness.norms import RegressionEqualityNorm
 
 
 def test_regression_normalizer_before_calling_once():
-    norm = RegressionEqualityNorm(1)
+    norm = RegressionEqualityNorm()
 
     with pytest.raises(RuntimeError) as e1:
         norm._normalizer(100)
@@ -19,7 +19,7 @@ def test_regression_normalizer_before_calling_once():
 def test_regression_normalizer_after_calling_once():
     X = pd.DataFrame({"attr": [1, 2, 3, 4, 5, 6]})
     y_pred = [50, 100, 30, 100, 250, 175]
-    norm = RegressionEqualityNorm(1)
+    norm = RegressionEqualityNorm()
 
     norm(X, y_pred, None)
 
@@ -29,7 +29,7 @@ def test_regression_normalizer_after_calling_once():
 def test_regression_call_no_normalize():
     X = pd.DataFrame({"attr": [1, 2, 3, 4, 5, 6]}, index=["A", "B", "C", "D", "E", "F"])
     y_pred = [50, 100, 30, 100, 250, 175]
-    norm = RegressionEqualityNorm(1)
+    norm = RegressionEqualityNorm()
 
     result = norm(X, y_pred, None, normalize=False)
 
@@ -42,7 +42,7 @@ def test_regression_call_no_normalize():
 def test_regression_call_with_normalize():
     X = pd.DataFrame({"attr": [1, 2, 3, 4, 5, 6]})
     y_pred = [50, 100, 30, 100, 250, 175]
-    norm = RegressionEqualityNorm(1)
+    norm = RegressionEqualityNorm()
 
     result = norm(X, y_pred, None, normalize=True)
 

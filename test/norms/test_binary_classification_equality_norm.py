@@ -6,7 +6,7 @@ from contextualfairness.norms import BinaryClassificationEqualityNorm
 
 
 def test_binary_classification_normalizer():
-    norm = BinaryClassificationEqualityNorm(1)
+    norm = BinaryClassificationEqualityNorm()
 
     assert norm._normalizer(101) == 50
     assert norm._normalizer(100) == 50
@@ -23,7 +23,7 @@ def test_binary_classification_call_no_positive_class():
         index=["A", "B", "C", "D", "E", "F"],
     )
     y_pred = ["A", "A", "A", "B", "B", "A"]
-    norm = BinaryClassificationEqualityNorm(1)
+    norm = BinaryClassificationEqualityNorm()
 
     result = norm(X, y_pred, None)
 
@@ -36,7 +36,7 @@ def test_binary_classification_call_no_positive_class():
 def test_binary_classification_call_no_positive_class_no_normalize():
     X = pd.DataFrame({"attr": [1, 2, 3, 4, 5, 6]})
     y_pred = ["A", "A", "A", "B", "B", "A"]
-    norm = BinaryClassificationEqualityNorm(1)
+    norm = BinaryClassificationEqualityNorm()
 
     result = norm(X, y_pred, None, normalize=False)
 
@@ -48,7 +48,7 @@ def test_binary_classification_call_with_positive_class():
     X = pd.DataFrame({"attr": [1, 2, 3, 4, 5, 6]})
     y_pred = ["A", "A", "A", "B", "B", "A"]
 
-    norm = BinaryClassificationEqualityNorm(1, positive_class_value="B")
+    norm = BinaryClassificationEqualityNorm(positive_class_value="B")
 
     result = norm(X, y_pred, None)
 
@@ -60,7 +60,7 @@ def test_binary_classification_call_only_one_class_present_no_positive_class():
     X = pd.DataFrame({"attr": [1, 2, 3, 4, 5, 6]})
     y_pred = ["A", "A", "A", "A", "A", "A"]
 
-    norm = BinaryClassificationEqualityNorm(1)
+    norm = BinaryClassificationEqualityNorm()
 
     result = norm(X, y_pred, None)
 
@@ -72,7 +72,7 @@ def test_binary_classification_call_only_one_class_present_with_positive_class()
     X = pd.DataFrame({"attr": [1, 2, 3, 4, 5, 6]})
     y_pred = ["A", "A", "A", "A", "A", "A"]
 
-    norm = BinaryClassificationEqualityNorm(1, positive_class_value="B")
+    norm = BinaryClassificationEqualityNorm(positive_class_value="B")
 
     result = norm(X, y_pred, None)
 
@@ -84,7 +84,7 @@ def test_binary_classification_call_three_classes_present_no_positive_class():
     X = pd.DataFrame({"attr": [1, 2, 3, 4, 5, 6]})
     y_pred = ["A", "A", "A", "B", "B", "C"]
 
-    norm = BinaryClassificationEqualityNorm(1)
+    norm = BinaryClassificationEqualityNorm()
 
     with pytest.raises(ValueError) as e1:
         norm(X, y_pred, None)
@@ -99,7 +99,7 @@ def test_binary_classification_call_only_three_classes_present_with_positive_cla
     X = pd.DataFrame({"attr": [1, 2, 3, 4, 5, 6]})
     y_pred = ["A", "A", "A", "B", "B", "C"]
 
-    norm = BinaryClassificationEqualityNorm(1, positive_class_value="B")
+    norm = BinaryClassificationEqualityNorm(positive_class_value="B")
 
     with pytest.raises(ValueError) as e1:
         norm(X, y_pred, None)

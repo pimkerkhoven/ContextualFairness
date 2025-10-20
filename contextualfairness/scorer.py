@@ -132,7 +132,7 @@ class ContextualFairnessResult:
         return result
 
 
-def contextual_fairness_score(norms, X, y_pred, y_pred_probas=None):
+def contextual_fairness_score(norms, X, y_pred, y_pred_probas=None, weights=None):
     """Calculate contexual fairness scores for each sample.
     This function calculates the contextual fairness for each sample in X by
     first calculating score for each norm. Then, the total contextual fairness
@@ -156,6 +156,9 @@ def contextual_fairness_score(norms, X, y_pred, y_pred_probas=None):
         specifying y_pred_probas will result in setting y_pred_probas equal to
         y_pred.
 
+    weights : list[float]
+        The weight for each norm.
+
 
     Returns
     -------
@@ -164,16 +167,22 @@ def contextual_fairness_score(norms, X, y_pred, y_pred_probas=None):
     if len(norms) < 1:
         raise ValueError("Must specify at least one norm.")
 
-    total_norm_weight = 0
-    for norm in norms:
-        if norm.weight < 0 or norm.weight > 1:
-            raise ValueError(
-                f"Weight for norm `{norm.name}` is {norm.weight}. Must be between 0 and 1."
-            )
+    norm_names = [norm.name for norm in norms]
+    if len(norm_names) != len(set(norm_names)):
+        raise ValueError("Norm names must be unique.")
 
-        total_norm_weight += norm.weight
+    uniform_weights = False
+    if weights is None:
+        weights = len(norms) * [1 / len(norms)]
+        uniform_weights = True
 
-    if not total_norm_weight == 1:
+    if len(weights) != len(norms):
+        raise ValueError("Weights must have same length as norms.")
+
+    if max(weights) > 1 or min(weights) < 0:
+        raise ValueError("All weights must be between 0 and 1.")
+
+    if not uniform_weights and not sum(weights) == 1:
         raise ValueError("Norm weights must sum to 1.")
 
     if not len(X) == len(y_pred):
@@ -186,14 +195,11 @@ def contextual_fairness_score(norms, X, y_pred, y_pred_probas=None):
 
     result_df = X.copy()
 
-    for norm in norms:
-        r = norm(X, y_pred, outcome_scores, normalize=True)
-        print(r)
-        result_df[norm.name] = r
-
+    for i, norm in enumerate(norms):
+        result_df[norm.name] = norm(X, y_pred, outcome_scores, normalize=True)
         result_df[norm.name] = result_df[norm.name].astype("float64")
 
-        result_df[norm.name] = result_df.loc[:, norm.name] * norm.weight
+        result_df[norm.name] = result_df.loc[:, norm.name] * weights[i]
 
     result_df["total"] = result_df[(norm.name for norm in norms)].sum(axis=1)
 
