@@ -38,9 +38,6 @@ def test_rank_call_norm_function_call_non_existent_attribute():
     )
 
 
-# #TODO: rename norm function to value function? -> Check paper?
-
-
 def test_rank_call_three_items():
     def attr_norm_function(x):
         return x["attr"]
