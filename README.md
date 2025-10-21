@@ -169,7 +169,8 @@ from folktables import ACSDataSource, ACSIncome
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 
-from contextualfairness import contextual_fairness_score BinaryClassificationEqualityNorm, RankNorm,
+from contextualfairness.scorer import contextual_fairness_score
+from contextualfairness.norms import BinaryClassificationEqualityNorm, RankNorm
 
 
 # load and prepare data

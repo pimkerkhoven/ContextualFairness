@@ -9,11 +9,6 @@ import contextualfairness
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
-# with open("requirements.txt", "r") as f:
-#     install_requires = [line.strip() for line in f]
-
-install_requires = ["pandas==2.3.3", "numpy==2.2.6"]
-
 setuptools.setup(
     name=contextualfairness.__name__,
     version=contextualfairness.__version__,
@@ -25,7 +20,7 @@ setuptools.setup(
     url="https://github.com/pimkerkhoven/ContextualFairness",
     packages=setuptools.find_packages(),
     python_requires=">=3.10.13",
-    install_requires=install_requires,
+    install_requires=["pandas==2.3.3", "numpy==2.2.6"],
     classifiers=[
         "Programming Language :: Python :: 3.10",
         "License :: OSI Approved :: MIT License",
