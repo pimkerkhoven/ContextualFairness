@@ -95,7 +95,7 @@ def test_X_and_y_pred_probas_not_same_length():
                 2,
             ],
         )
-    assert str(e1.value) == "X and y_pred_probas must have the same length."
+    assert str(e1.value) == "X and outcome_scores must have the same length."
 
 
 def test_result_is_correct():

@@ -14,3 +14,5 @@ dist
 api-token-pypitest
 
 contextualfairness.egg-info
+
+examples/readme_showcase.py

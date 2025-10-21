@@ -117,7 +117,7 @@ class ContextualFairnessResult:
         return result
 
 
-def contextual_fairness_score(norms, X, y_pred, y_pred_probas=None, weights=None):
+def contextual_fairness_score(norms, X, y_pred, outcome_scores=None, weights=None):
     """Calculate contexual fairness scores for each sample.
     This function calculates the contextual fairness for each sample in X by
     first calculating score for each norm. Then, the total contextual fairness
@@ -135,11 +135,11 @@ def contextual_fairness_score(norms, X, y_pred, y_pred_probas=None, weights=None
     y_pred : array-like of shape (n_samples,)
         The predictions for the samples.
 
-    y_pred_probas : array-like of shape (n_samples,), default=None
-        The probabilities for each sample being predicted a specific class,
-        usually this is the positive class. In case of regression, not
-        specifying y_pred_probas will result in setting y_pred_probas equal to
-        y_pred.
+    outcome_scores : array-like of shape (n_samples,), default=None
+        The outcome score for each sample being predicted a specific class,
+        when specified this usually is the probabilities for the positive
+        class. In case of regression, not specifying outcome_scores will result
+        in setting outcome_scores equal to y_pred.
 
     weights : list[float]
         The weight for each norm.
@@ -173,10 +173,10 @@ def contextual_fairness_score(norms, X, y_pred, y_pred_probas=None, weights=None
     if not len(X) == len(y_pred):
         raise ValueError("X and y_pred must have the same length.")
 
-    if y_pred_probas is not None and not len(X) == len(y_pred_probas):
-        raise ValueError("X and y_pred_probas must have the same length.")
+    if outcome_scores is not None and not len(X) == len(outcome_scores):
+        raise ValueError("X and outcome_scores must have the same length.")
 
-    outcome_scores = y_pred.copy() if y_pred_probas is None else y_pred_probas
+    outcome_scores = y_pred.copy() if outcome_scores is None else outcome_scores
 
     result_df = X.copy()
 
