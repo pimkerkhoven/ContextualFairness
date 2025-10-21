@@ -64,7 +64,7 @@ class ContextualFairnessResult:
             Contains a key for each group that is generated based on the specified
             attributes (e.g. sex=male;age=young). For each group, a dict is
             defined containing the contextual fairness "score" and the "data"
-            containg the samples that belong to the group.
+            containing the scores for each sample in the group.
         """
         if len(attributes) == 0:
             raise ValueError("Must specify at least one attribute.")
@@ -184,7 +184,7 @@ def contextual_fairness_score(norms, X, y_pred, y_pred_probas=None, weights=None
         result_df[norm.name] = norm(X, y_pred, outcome_scores, normalize=True)
         result_df[norm.name] = result_df[norm.name].astype("float64")
 
-        result_df[norm.name] = result_df.loc[:, norm.name] * weights[i]
+        result_df[norm.name] = result_df[norm.name] * weights[i]
 
     result_df["total"] = result_df[(norm.name for norm in norms)].sum(axis=1)
 
