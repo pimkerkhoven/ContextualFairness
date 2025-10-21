@@ -21,13 +21,6 @@ def result_obj():
     return ContextualFairnessResult(df)
 
 
-def test_most_unfairly_treated(result_obj):
-    result = result_obj.most_unfairly_treated()
-
-    assert list(result.index.values) == [3, 2, 0, 4, 6, 1, 5, 7]
-    assert list(result.columns) == ["sex", "age", "total"]
-
-
 def test_most_total_score(result_obj):
     assert result_obj.total_score() == 0.855
 

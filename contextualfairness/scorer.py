@@ -19,21 +19,6 @@ class ContextualFairnessResult:
     def __init__(self, df):
         self.df = df
 
-    def most_unfairly_treated(self, n_samples=10):
-        """Retrieve the n_samples with the highest total score.
-
-        Parameters
-        ----------
-        n_samples : int
-            Number of samples to include in result.
-
-        Returns
-        -------
-        pandas.DataFrame
-            The n_samples with the highest total score.
-        """
-        return self.df.sort_values(by=["total"], ascending=False).head(n_samples)
-
     def total_score(self):
         """Retrieve the total contextual fairness score
 
