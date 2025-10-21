@@ -313,7 +313,6 @@ class RankNorm:
 
             scores.append(individual_score)
 
-        # Lowest outcome score always has score 0 (TODO: check claim)
         scores.append(0)
 
         result = pd.Series(
