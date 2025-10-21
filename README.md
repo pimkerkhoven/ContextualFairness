@@ -7,7 +7,9 @@
 
 The contextual norms allow for not only considering the equality norms, but also other norms such as equity or need. This is important because depening on the context equality is not the only fairness norm that is suitable or even suitable at all.
 
-ContextualFairness allows for a fairness analysis on three levels, the global level, the between-group level (e.g., old vs young people), and the in-group level. As shown in this [paper](), this three level analysis allows for a more detailed fairness analysis and combined with the contextual norms, ContextualFairness allows for more nuanced evalutions of fairness with respect to the societal context an ML system operates in.
+ContextualFairness allows for a fairness analysis on three levels, the global level, the between-group level (e.g., old vs young people), and the in-group level. 
+<!-- As shown in this [paper](),  -->
+This three level analysis allows for a more detailed fairness analysis and combined with the contextual norms, ContextualFairness allows for more nuanced evalutions of fairness with respect to the societal context an ML system operates in.
 
 
 ## Contents
@@ -15,7 +17,7 @@ ContextualFairness allows for a fairness analysis on three levels, the global le
 2. [Usage](#usage)
 3. [Example](#examples)
 4. [Limitations](#limitations)
-5. [Citing ContextualFairness](#citing-contextualfairness)
+<!-- 5. [Citing ContextualFairness](#citing-contextualfairness) -->
 
 
 ## Installation with pip
@@ -171,9 +173,9 @@ from contextualfairness import contextual_fairness_score BinaryClassificationEqu
 
 
 # load and prepare data
-data_source = ACSDataSource(survey_year="2016", horizon="1-Year", survey="person", root_dir="data/raw")
-acs_data_ca = data_source.get_data(states=["CA"], download="True")
-X, y, _ = ACSIncome.df_to_pandas(acs_data_ca)
+data_source = ACSDataSource(survey_year="2016", horizon="1-Year", survey="person")
+acs_data = data_source.get_data(states=["WY"], download="True")
+X, y, _ = ACSIncome.df_to_pandas(acs_data)
 y = y["PINCP"]
 sensitive_attribute = X["SEX"].copy()
 
@@ -214,19 +216,20 @@ print(result.total_score())
 print(result.group_scores(attributes=["SEX"], scaled=True))
 ```
 
-Additional examples can be found in the `examples` folder. This folder also contains the experiments used for evaluation in the paper [*Assessing machine learning fairness with multiple contextual norms*]().
+Additional examples can be found in the `examples` folder. 
+<!-- This folder also contains the experiments used for evaluation in the paper [*Assessing machine learning fairness with multiple contextual norms*](). -->
 
 ## Limitations
 
 The most important limitations of the current implementation are:
 
-- Linear norms
-- Computational limitation for rank norms on large datasets
-- Only tabular data
+- On big datasets calculating rank norms becomes time consuming due to the required pairwise comparison of samples.
+- Norms are combined linearly, consequently ContextualFairness cannot capture conditional or hierarchical relations between norms, for example, when we want equity except in cases of need.
+- Rank norms can only be meaningfully defined for tabular data, as defining a `norm_function` for other types of data such as image, sound or text data is much harder.
 
-Further limitations of ContextualFairness can be found in the [paper]().
+<!-- Further limitations of ContextualFairness can be found in the [paper](). -->
 
-## Citing ContextualFairness
+<!-- ## Citing ContextualFairness
 ContextualFairness is proposed in this [paper](), wich you can cite as follows:
 
 ```
@@ -237,4 +240,4 @@ ContextualFairness is proposed in this [paper](), wich you can cite as follows:
   volume={},
   year={2025}
 }
-```
+``` -->
