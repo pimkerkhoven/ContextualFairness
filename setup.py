@@ -19,10 +19,10 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/pimkerkhoven/ContextualFairness",
     packages=setuptools.find_packages(),
-    python_requires=">=3.10.13",
+    python_requires=">=3.13.1",
     install_requires=["pandas==2.3.3", "numpy==2.2.6"],
     classifiers=[
-        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.13",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
