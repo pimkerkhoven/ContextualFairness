@@ -50,7 +50,7 @@ To use ContextualFairness, we must first operationalize the norms, to this end C
 The `BinaryClassificationEqualityNorm` is operationalized as follows:
 
 ```python
-from contextualfairness import BinaryClassificationEqualityNorm
+from contextualfairness.norms import BinaryClassificationEqualityNorm
 
 binary_classification_equality_norm = BinaryClassificationEqualityNorm()
 ```
@@ -64,7 +64,7 @@ binary_classification_equality_norm = BinaryClassificationEqualityNorm(positive_
 
 The `RegressionEqualityNorm` is operationalized as follows:
 ```python
-from contextualfairness import RegressionEqualityNorm
+from contextualfairness.norms import RegressionEqualityNorm
 
 regression_equality_norm = RegressionEqualityNorm()
 ```
@@ -74,7 +74,7 @@ Here equality, means having the maximum predicted value. Therefore, we calculate
 To operationalize a `RankNorm`, we must first specify a function for ranking all samples in the dataset with respect to the norm. For example, for the norms defined above, rank by hours worked if *people who work more hours should earn more*. This gives te following operationalization:
 
 ```python
-from contextualfairness import RankNorm
+from contextualfairness.norms import RankNorm
 
 def more_hours_worked_is_preferred(x):
     x.hours_worked # assuming x has the attribute `hours_worked`
@@ -95,7 +95,7 @@ After operationalizing the norms, we provide these norms to `contextual_fairness
 
 For binary classification this looks as follows:
 ```python
-from contextualfairness import contextual_fairness_score
+from contextualfairness.scorer import contextual_fairness_score
 
 norms = [binary_classification_equality_norm, rank_norm]
 
@@ -123,7 +123,7 @@ result = contextual_fairness_score(
     y_pred=y_pred, # Assume the existence of some array-like of predictions
 )
 ```
-Note, that for regression not specifying the `outcome_scores` results in setting `outcome_scores=y_pred`.
+Note, that not specifying the `outcome_scores` results in setting `outcome_scores=y_pred`, which is useful for regression.
 
 
 ### Analyze the results
