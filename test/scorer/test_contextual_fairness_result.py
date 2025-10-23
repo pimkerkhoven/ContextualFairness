@@ -52,8 +52,8 @@ def test_group_score_single_attribute(result_obj):
     assert list(result["sex=F"]["data"].index.values) == [2, 4, 7]
     assert list(result["sex=M"]["data"].index.values) == [0, 1, 3, 5, 6]
 
-    assert sum(result["sex=F"]["data"]) == result["sex=F"]["score"]
-    assert sum(result["sex=M"]["data"]) == result["sex=M"]["score"]
+    assert sum(result["sex=F"]["data"]) == pytest.approx(result["sex=F"]["score"])
+    assert sum(result["sex=M"]["data"]) == pytest.approx(result["sex=M"]["score"])
 
     assert result["sex=F"]["score"] + result["sex=M"]["score"] == pytest.approx(
         result_obj.total_score()

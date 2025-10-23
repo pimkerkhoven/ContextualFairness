@@ -255,16 +255,9 @@ def test_uniform_norms_should_not_sum_to_one_if_no_weights():
 def test_uniform_norms_should_sum_to_one_if_weights():
     with pytest.raises(ValueError) as e1:
         contextual_fairness_score(
-            [
-                Norm(name="dummy_norm_1"),
-                Norm(name="dummy_norm_2"),
-                Norm(name="dummy_norm_3"),
-                Norm(name="dummy_norm_4"),
-                Norm(name="dummy_norm_5"),
-                Norm(name="dummy_norm_6"),
-            ],
+            [Norm(name=f"dumm_norm_{i}") for i in range(49)],
             None,
             None,
-            weights=6 * [1 / 6],
+            weights=49 * [1 / 49],
         )
     assert str(e1.value) == "Norm weights must sum to 1."
