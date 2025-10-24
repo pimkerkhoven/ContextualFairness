@@ -77,9 +77,9 @@ To operationalize a `RankNorm`, we must first specify a function for ranking all
 from contextualfairness.norms import RankNorm
 
 def more_hours_worked_is_preferred(x):
-    x.hours_worked # assuming x has the attribute `hours_worked`
+    return x.hours_worked # assuming x has the attribute `hours_worked`
 
-rank_norm = RegressionEqualityNorm(norm_function=more_hours_worked_is_preferred, name="Work more hours")
+rank_norm = RankNorm(norm_function=more_hours_worked_is_preferred, name="Work more hours")
 ```
 
 Alternative, we can also not specify a name, in this case the function name is used to name the norm:

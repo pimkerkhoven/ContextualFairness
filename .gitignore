@@ -1,18 +1,12 @@
 .venv/
-
 __pycache__/
-
 .ruff_cache/
-
 .pytest_cache
+dist/
+.idea/
+contextualfairness.egg-info
 
 examples/data
 
-dist
-
-
 api-token-pypi
-
-contextualfairness.egg-info
-
 examples/readme_showcase.py
