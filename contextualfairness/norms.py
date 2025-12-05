@@ -4,7 +4,7 @@
 import math
 
 import numpy as np
-import pandas as pd
+import polars as pl
 
 
 class BinaryClassificationEqualityNorm:
@@ -35,14 +35,13 @@ class BinaryClassificationEqualityNorm:
         self,
         positive_class_value=None,
     ):
-        self.name = "Equality"
+        self.name = "equality"
         self.positive_class_value = positive_class_value
 
     def __call__(
         self,
-        X,
-        y_pred,
-        _,
+        df,
+        # pred_column_name,
         normalize=True,
     ):
         """Calculate the equality score for each sample in X given binary
@@ -68,37 +67,28 @@ class BinaryClassificationEqualityNorm:
         pd.Series of shape (n_samples,)
             The equality score (0 or 1) for each sample in X.
         """
-        values, counts = np.unique(
-            y_pred,
-            return_counts=True,
-        )
+        pred_column_name = "predictions"
 
-        if len(values) > 2:
+        if df.unique(pred_column_name).select(pl.len()).collect().item() > 2:
             raise ValueError(
                 "y_pred must not contain more than two classes for binary classification."
             )
 
         if self.positive_class_value is None:
-            ind = np.argmax(counts)
-            reference_class = values[ind]
+            reference_class = pl.col(pred_column_name).mode().first()
         else:
             reference_class = self.positive_class_value
 
-        result = pd.Series(
-            [0 if y == reference_class else 1 for y in y_pred],
-            index=X.index,
+        normalizer = 1
+        if normalize and self.positive_class_value is None:
+            normalizer = (pl.len() / 2).floor()
+        elif normalize:
+            normalizer = pl.len()
+            
+        return df.with_columns(
+            equality=(pl.when(pl.col(pred_column_name) == reference_class).then(0).otherwise(1))
+            / normalizer
         )
-
-        if normalize:
-            return result / self._normalizer(len(X))
-
-        return result
-
-    def _normalizer(self, n):
-        if self.positive_class_value is None:
-            return math.floor(n / 2)
-
-        return n
 
 
 class RegressionEqualityNorm:
@@ -126,15 +116,12 @@ class RegressionEqualityNorm:
     """
 
     def __init__(self):
-        self.name = "Equality"
-
-        self._normalizer_val = None
+        self.name = "equality"
 
     def __call__(
         self,
-        X,
-        y_pred,
-        _,
+        df,
+        # pred_column_name,
         normalize=True,
     ):
         """Calculate the equality score for each sample in X given regression
@@ -161,25 +148,15 @@ class RegressionEqualityNorm:
         pd.Series of shape (n_samples,)
             The equality score for each sample in X.
         """
-        y_max = np.max(y_pred)
-        self._normalizer_val = abs(y_max - np.min(y_pred))
+        pred_column_name = "predictions"
 
-        result = pd.Series(
-            [abs(v - y_max) for v in y_pred],
-            index=X.index,
-        )
+        normalizer = pl.lit(1)
         if normalize:
-            return result / self._normalizer(len(X))
+            normalizer = (pl.col(pred_column_name).max() - pl.col(pred_column_name).min()) * pl.len()
 
-        return result
-
-    def _normalizer(self, n):
-        if self._normalizer_val is None:
-            raise RuntimeError(
-                "Regression equality norm must have been called at least once before being able to compute normalizer."
-            )
-
-        return n * self._normalizer_val
+        return df.with_columns(
+            equality=(pl.col(pred_column_name).max() - pl.col(pred_column_name)) / normalizer
+        )
 
 
 class RankNorm:
@@ -215,17 +192,16 @@ class RankNorm:
 
     def __init__(
         self,
-        norm_function,
-        name=None,
+        norm_statement,
+        name,
     ):
-        self.name = name if name is not None else norm_function.__name__
-        self.norm_function = norm_function
+        self.name = name
+        self.norm_statement = norm_statement
 
     def __call__(
         self,
-        X,
-        _,
-        outcome_scores,
+        df,
+        # outcome_column_name,
         normalize=True,
     ):
         """Calculate the rank score for each sample in X given the
@@ -251,79 +227,33 @@ class RankNorm:
         pd.Series of shape (n_samples,)
             The rank score for each sample in X.
         """
-        scores = []
-        X = X.copy()
+        outcome_column_name = "outcomes"
+        out_columns = df.collect_schema().names() + [self.name]
 
-        try:
-            X["norm_score"] = X.apply(
-                self.norm_function,
-                axis=1,
-            )
-        except Exception as e:
-            raise RuntimeError(
-                f"Error occured when applying norm_function for `{self.name}`."
-            ) from e
-
-        X["outcome_scores"] = outcome_scores
-        X.sort_values(
-            by=["outcome_scores"],
-            inplace=True,
-        )
-
-        X_norm_sorted = X["norm_score"].copy()
-        X_norm_sorted.sort_values(
-            inplace=True,
-            ascending=False,
-        )
-
-        for i in range(len(X) - 1):
-            outcome_value_i = X.iloc[i]["outcome_scores"]
-            outcome_ranking_offset = 1
-
-            while (
-                i + outcome_ranking_offset < len(X)
-                and outcome_value_i
-                == X.iloc[i + outcome_ranking_offset]["outcome_scores"]
-            ):
-                outcome_ranking_offset += 1
-
-            higher_outcome_individuals = X.iloc[i + outcome_ranking_offset :].index
-
-            # Map individual from outcome to norm value
-            outcome_rank_i = X.iloc[i : i + 1].index[0]
-            norm_value_rank_i = X_norm_sorted.index.get_loc(outcome_rank_i)
-
-            norm_value_i = X_norm_sorted.iloc[norm_value_rank_i]
-            norm_value_offset = 1
-
-            while (
-                norm_value_rank_i + norm_value_offset < len(X_norm_sorted)
-                and norm_value_i
-                == X_norm_sorted.iloc[norm_value_rank_i + norm_value_offset]
-            ):
-                norm_value_offset += 1
-
-            lower_norm_value_individuals = X_norm_sorted.iloc[
-                norm_value_rank_i + norm_value_offset :
-            ].index
-
-            individual_score = len(
-                lower_norm_value_individuals.intersection(higher_outcome_individuals)
-            )
-
-            scores.append(individual_score)
-
-        scores.append(0)
-
-        result = pd.Series(
-            scores,
-            index=X.index,
-        )
-
+        normalizer = 1
         if normalize:
-            return result / self._normalizer(len(X))
+            normalizer = pl.len() * (pl.len() - 1) / 2
 
-        return result
+        df = df.with_columns(norm=self.norm_statement)
 
-    def _normalizer(self, n):
-        return n * (n - 1) / 2
+        df_score = (
+            df
+            .with_row_index()
+            .join_where(
+                df,
+                (pl.col("norm") > pl.col("norm_right"))
+                & (pl.col(outcome_column_name) < pl.col(f"{outcome_column_name}_right")),
+            )
+            .group_by("index")
+            .len()
+        )
+
+        return (
+            df.with_row_index()
+            .join(df_score, on="index", how="left")
+            .fill_null(strategy="zero")
+            .drop("index")
+            .with_columns((pl.col("len") / normalizer).alias(self.name))
+            .select(out_columns)
+        )
+

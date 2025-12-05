@@ -1,6 +1,7 @@
 # dev tools
 ruff==0.14.0
 pytest==8.4.2
+jedi-language-server==0.46.0
 
 
 # used for examples

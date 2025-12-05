@@ -3,6 +3,8 @@
 
 import itertools
 
+import polars as pl
+
 
 class ContextualFairnessResult:
     """Results for contextual fairness
@@ -28,7 +30,7 @@ class ContextualFairnessResult:
             The sum of the contextual fairness score for each sample.
 
         """
-        return self.df["total"].sum()
+        return self.df.select(pl.col("total").sum()).collect().item()
 
     def group_scores(self, attributes, scaled=False):
         """Calculate the contextual fairness score for each group based on a
@@ -70,54 +72,37 @@ class ContextualFairnessResult:
             raise ValueError("Must specify at least one attribute.")
 
         for attr in attributes:
-            if attr not in self.df.columns:
+            if attr not in self.df.collect_schema().names():
                 raise ValueError(
                     f"Column with name `{attr}` does not exist in ContextualFairnessResult."
                 )
 
-        values = [sorted(self.df[attr].unique()) for attr in attributes]
-        groups = itertools.product(*values)
+        result = self.df.select(pl.col(attributes[0]).unique())
 
-        result = dict()
-        for group in groups:
-            indexer = True
-            group_name = ""
-            for attr, val in zip(attributes, group):
-                indexer = indexer & (self.df[attr] == val)
-                group_name += f"{attr}={val};"
-            group_name = group_name[:-1]
+        for attr in attributes[1:]:
+            result = result.join(self.df.select(pl.col(attr).unique()), how="cross")
 
-            result[group_name] = dict()
-            result[group_name]["data"] = self.df[indexer]["total"].copy()
-            result[group_name]["score"] = result[group_name]["data"].sum()
+        result = result.join(
+            self.df.with_row_index()
+            .group_by(attributes)
+            .agg(pl.col("total").sum(), pl.col("index").alias("indices")),
+            how="left",
+            on=attributes,
+        ).with_columns(pl.col("total").fill_null(0), pl.col("indices").fill_null([]))
 
         if scaled:
-            denominator = 0
-            for group_name in result.keys():
-                if len(result[group_name]["data"]) > 0:
-                    denominator += result[group_name]["score"] / len(
-                        result[group_name]["data"]
-                    )
+            num_in_group = pl.col("indices").list.len()
+            denominator = (pl.col("total") / num_in_group).fill_nan(0).sum()
+            sum_total = pl.col("total").sum()
 
-            for group_name in result.keys():
-                if len(result[group_name]["data"]) > 0:
-                    scaled_score = (
-                        (result[group_name]["score"] / len(result[group_name]["data"]))
-                        / denominator
-                    ) * self.total_score()
-
-                    if result[group_name]["score"] == 0:
-                        ratio = 0
-                    else:
-                        ratio = scaled_score / result[group_name]["score"]
-
-                    result[group_name]["data"] *= ratio
-                    result[group_name]["score"] = scaled_score
+            result = result.with_columns(
+                total=(pl.col("total") / num_in_group / denominator).fill_nan(0) * sum_total
+            )
 
         return result
 
 
-def contextual_fairness_score(norms, X, y_pred, outcome_scores=None, weights=None):
+def contextual_fairness_score(norms, data, y_pred, outcome_scores=None, weights=None):
     """Calculate contexual fairness scores for each sample.
     This function calculates the contextual fairness for each sample in X by
     first calculating score for each norm. Then, the total contextual fairness
@@ -170,22 +155,24 @@ def contextual_fairness_score(norms, X, y_pred, outcome_scores=None, weights=Non
     if not uniform_weights and not sum(weights) == 1:
         raise ValueError("Norm weights must sum to 1.")
 
-    if not len(X) == len(y_pred):
+    if not len(data[list(data.keys())[0]]) == len(y_pred):
         raise ValueError("X and y_pred must have the same length.")
 
-    if outcome_scores is not None and not len(X) == len(outcome_scores):
+    if outcome_scores is not None and not len(data[list(data.keys())[0]]) == len(
+        outcome_scores
+    ):
         raise ValueError("X and outcome_scores must have the same length.")
 
-    outcome_scores = y_pred.copy() if outcome_scores is None else outcome_scores
+    outcome_scores = y_pred if outcome_scores is None else outcome_scores
 
-    result_df = X.copy()
+    data["predictions"] = y_pred
+    data["outcomes"] = outcome_scores
+
+    df = pl.LazyFrame(data)
 
     for i, norm in enumerate(norms):
-        result_df[norm.name] = norm(X, y_pred, outcome_scores, normalize=True)
-        result_df[norm.name] = result_df[norm.name].astype("float64")
+        df = norm(df, normalize=True).with_columns(pl.col(norm.name) * weights[i])
 
-        result_df[norm.name] = result_df[norm.name] * weights[i]
+    df = df.with_columns(total=pl.sum_horizontal((norm.name for norm in norms)))
 
-    result_df["total"] = result_df[(norm.name for norm in norms)].sum(axis=1)
-
-    return ContextualFairnessResult(result_df)
+    return ContextualFairnessResult(df.collect().lazy())
