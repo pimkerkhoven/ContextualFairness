@@ -2,4 +2,4 @@
 # Licensed under the MIT License.
 
 __name__ = "contextualfairness"
-__version__ = "0.0.1"
+__version__ = "0.0.2"
