@@ -5,8 +5,13 @@ __pycache__/
 dist/
 .idea/
 contextualfairness.egg-info
+.DS_Store
 
 examples/data
 
 api-token-pypi
 examples/readme_showcase.py
+
+compas-sias-presentatie.ipynb
+polars_test.py
+compas.ipynb

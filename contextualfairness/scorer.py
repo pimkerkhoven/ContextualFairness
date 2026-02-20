@@ -1,8 +1,6 @@
 # Copyright (c) ContextualFairness contributors.
 # Licensed under the MIT License.
 
-import itertools
-
 import polars as pl
 
 
@@ -14,8 +12,8 @@ class ContextualFairnessResult:
 
     Parameters
     ----------
-    df : pandas.DataFrame
-        DataFrame containing the results of contextual fairness.
+    df : polars.LazyFrame
+        LazyFrame containing the results of contextual fairness.
     """
 
     def __init__(self, df):
@@ -62,11 +60,15 @@ class ContextualFairnessResult:
 
         Returns
         -------
-        dict
-            Contains a key for each group that is generated based on the specified
-            attributes (e.g. sex=male;age=young). For each group, a dict is
-            defined containing the contextual fairness "score" and the "data"
-            containing the scores for each sample in the group.
+        polars.LazyFrame
+            Contains a column for each attribute and each row denotes a
+            unique combination of teh attribute values. For example, a row with
+            sex=male and age=young.
+            The frame contains a `total` and `indices` column. Where the `total`
+            column contains the scores for each combination of attributes and
+            the `indices` columns contains the indices of the samples belonging
+            to group from the `self.df` LazyFrame, which can be use to retrieve
+            the score for each sample.
         """
         if len(attributes) == 0:
             raise ValueError("Must specify at least one attribute.")
@@ -96,7 +98,8 @@ class ContextualFairnessResult:
             sum_total = pl.col("total").sum()
 
             result = result.with_columns(
-                total=(pl.col("total") / num_in_group / denominator).fill_nan(0) * sum_total
+                total=(pl.col("total") / num_in_group / denominator).fill_nan(0)
+                * sum_total
             )
 
         return result
@@ -114,8 +117,9 @@ def contextual_fairness_score(norms, data, y_pred, outcome_scores=None, weights=
     norms : list[Norm]
         Norms used in calculating the contextual fairness score.
 
-    X : pandas.Dataframe of shape (n_samples, _)
-        The samples for which contextual fairness is calculated.
+    data : dict
+        Each key in the dict is a column of the DataFrame containing the data
+        used to initialize a `polars.LazyFrame`.
 
     y_pred : array-like of shape (n_samples,)
         The predictions for the samples.

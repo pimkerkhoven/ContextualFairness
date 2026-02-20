@@ -1,9 +1,6 @@
 # Copyright (c) ContextualFairness contributors.
 # Licensed under the MIT License.
 
-import math
-
-import numpy as np
 import polars as pl
 
 
@@ -41,7 +38,6 @@ class BinaryClassificationEqualityNorm:
     def __call__(
         self,
         df,
-        # pred_column_name,
         normalize=True,
     ):
         """Calculate the equality score for each sample in X given binary
@@ -49,14 +45,9 @@ class BinaryClassificationEqualityNorm:
 
         Parameters
         ----------
-        X : pandas.DataFrame of shape (n_samples, _)
-            The samples for which the equality score is calculated.
-
-        y_pred : array-like of shape (n_samples,)
-            The binary classification predictions for the samples in X.
-
-        _ : obj
-            Not applicable for equality norm
+        df : polars.lazyFrame of shape (n_cols, n_samples,)
+            The dataset for which the equality score is calculated.
+            Must contain a `predictions` column containing binary predictions.
 
         normalize : bool, default=True
             Flag that states whether or not the score is normalized based on
@@ -64,8 +55,9 @@ class BinaryClassificationEqualityNorm:
 
         Returns
         -------
-        pd.Series of shape (n_samples,)
-            The equality score (0 or 1) for each sample in X.
+        df.LazyFrme of shape (n_cols + 1, n_samples)
+            The input data extended with the equality score (0 or 1) for each
+            sample in df.
         """
         pred_column_name = "predictions"
 
@@ -84,9 +76,13 @@ class BinaryClassificationEqualityNorm:
             normalizer = (pl.len() / 2).floor()
         elif normalize:
             normalizer = pl.len()
-            
+
         return df.with_columns(
-            equality=(pl.when(pl.col(pred_column_name) == reference_class).then(0).otherwise(1))
+            equality=(
+                pl.when(pl.col(pred_column_name) == reference_class)
+                .then(0)
+                .otherwise(1)
+            )
             / normalizer
         )
 
@@ -115,13 +111,13 @@ class RegressionEqualityNorm:
         The (human-readable) name of the norm.
     """
 
-    def __init__(self):
+    def __init__(self, lower_is_better=False):
         self.name = "equality"
+        self.lower_is_better = lower_is_better
 
     def __call__(
         self,
         df,
-        # pred_column_name,
         normalize=True,
     ):
         """Calculate the equality score for each sample in X given regression
@@ -130,14 +126,10 @@ class RegressionEqualityNorm:
 
         Parameters
         ----------
-        X : pandas.DataFrame of shape (n_samples, _)
-            The samples for which the equality score is calculated.
-
-        y_pred : array-like of shape (n_samples,)
-            The regression predictions for the samples in X.
-
-        _ : obj
-            Not applicable for equality norm.
+        df : polars.lazyFrame of shape (n_cols, n_samples,)
+            The dataset for which the equality score is calculated.
+            Must contain a `predictions` column containing regression
+            predictions.
 
         normalize : bool, default=True
             Flag that states whether or not the score is normalized based on
@@ -145,17 +137,29 @@ class RegressionEqualityNorm:
 
         Returns
         -------
-        pd.Series of shape (n_samples,)
-            The equality score for each sample in X.
+        df.LazyFrme of shape (n_cols + 1, n_samples)
+            The input data extended with the equality score for each
+            sample in df.
         """
         pred_column_name = "predictions"
 
         normalizer = pl.lit(1)
         if normalize:
-            normalizer = (pl.col(pred_column_name).max() - pl.col(pred_column_name).min()) * pl.len()
+            normalizer = (
+                pl.col(pred_column_name).max() - pl.col(pred_column_name).min()
+            ) * pl.len()
+
+        if self.lower_is_better:
+            return df.with_columns(
+                equality=(
+                    pl.col(pred_column_name).min() - pl.col(pred_column_name)
+                ).abs()
+                / normalizer
+            )
 
         return df.with_columns(
-            equality=(pl.col(pred_column_name).max() - pl.col(pred_column_name)) / normalizer
+            equality=(pl.col(pred_column_name).max() - pl.col(pred_column_name))
+            / normalizer
         )
 
 
@@ -201,7 +205,6 @@ class RankNorm:
     def __call__(
         self,
         df,
-        # outcome_column_name,
         normalize=True,
     ):
         """Calculate the rank score for each sample in X given the
@@ -209,14 +212,9 @@ class RankNorm:
 
         Parameters
         ----------
-        X : pandas.DataFrame of shape (n_samples, _)
-            The samples for which the rank score is calculated.
-
-        _ : obj
-            Not applicable for rank norm.
-
-        outcome_scores : array-like of shape (n_samples,)
-            The outcome scores for the samples in X.
+        df : polars.lazyFrame of shape (n_cols, n_samples,)
+            The dataset for which the equality score is calculated.
+            Must contain an `outcomes` column.
 
         normalize : bool, default=True
             Flag that states whether or not the score is normalized based on
@@ -224,8 +222,9 @@ class RankNorm:
 
         Returns
         -------
-        pd.Series of shape (n_samples,)
-            The rank score for each sample in X.
+        df.LazyFrme of shape (n_cols + 1, n_samples)
+            The input data extended with the rank norm score for each
+            sample in df.
         """
         outcome_column_name = "outcomes"
         out_columns = df.collect_schema().names() + [self.name]
@@ -237,12 +236,13 @@ class RankNorm:
         df = df.with_columns(norm=self.norm_statement)
 
         df_score = (
-            df
-            .with_row_index()
+            df.with_row_index()
             .join_where(
                 df,
                 (pl.col("norm") > pl.col("norm_right"))
-                & (pl.col(outcome_column_name) < pl.col(f"{outcome_column_name}_right")),
+                & (
+                    pl.col(outcome_column_name) < pl.col(f"{outcome_column_name}_right")
+                ),
             )
             .group_by("index")
             .len()
@@ -256,4 +256,3 @@ class RankNorm:
             .with_columns((pl.col("len") / normalizer).alias(self.name))
             .select(out_columns)
         )
-

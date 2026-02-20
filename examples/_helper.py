@@ -98,7 +98,7 @@ def group_plot(
             difference = abs(max_val - min_val)
 
             ax.annotate(
-                f"Difference: {difference:.3f}",
+                f"Difference:\n {difference:.3f}",
                 xy=(x[i], max_val + 0.01),
                 xytext=(x[i], max_val + 0.01),
                 ha="center",
