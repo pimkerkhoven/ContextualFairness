@@ -2,8 +2,10 @@
 # Licensed under the MIT License.
 
 import pytest
+import numpy as np
 
-import pandas as pd
+import polars as pl
+from polars.testing import assert_frame_equal
 
 from collections import namedtuple
 
@@ -74,10 +76,11 @@ def test_sum_norm_names_cannot_be_the_same():
 
 
 def test_X_and_y_pred_not_same_length():
+    data = {"attr": [1, 2, 3]}
     with pytest.raises(ValueError) as e1:
         contextual_fairness_score(
             [Norm(name="dummy_norm"), Norm(name="dummy_norm_2")],
-            [1, 5, 8],
+            data,
             [1, 2],
             weights=[0.5, 0.5],
         )
@@ -85,158 +88,101 @@ def test_X_and_y_pred_not_same_length():
 
 
 def test_X_and_y_pred_probas_not_same_length():
+    data = {"attr": [1, 2, 3]}
     with pytest.raises(ValueError) as e1:
         contextual_fairness_score(
             [Norm(name="dummy_norm"), Norm(name="dummy_norm_2")],
-            [1, 5, 8],
+            data,
             [1, 2, 5],
-            [
-                1,
-                2,
-            ],
+            [1, 2],
         )
     assert str(e1.value) == "X and outcome_scores must have the same length."
 
 
 def test_result_is_correct():
-    X = pd.DataFrame(
-        data={"attr": [10, 5, 2, 1], "sex": ["M", "F", "F", "M"]},
-        index=["A", "B", "C", "D"],
-    )
+    data = {"attr": [10, 5, 2, 1], "sex": ["M", "F", "F", "M"]}
     y_pred = [1, 1, 0, 0]
     y_pred_probas = [3, 1, 2, 4]
 
-    def attr_norm_function(x):
-        return x["attr"]
+    attr_norm_stmt = pl.col("attr")
 
     norms = [
         BinaryClassificationEqualityNorm(positive_class_value=1),
-        RankNorm(norm_function=attr_norm_function),
+        RankNorm(norm_statement=attr_norm_stmt, name="attr_norm"),
     ]
 
     result = contextual_fairness_score(
-        norms, X, y_pred, y_pred_probas, weights=[0.5, 0.5]
+        norms, data, y_pred, y_pred_probas, weights=[0.5, 0.5]
     ).df
 
-    assert list(result.columns) == [
-        "attr",
-        "sex",
-        "Equality",
-        "attr_norm_function",
-        "total",
-    ]
-
-    print(result)
-
-    assert result["Equality"]["A"] == 0
-    assert result["Equality"]["B"] == 0
-    assert result["Equality"]["C"] == 0.125
-    assert result["Equality"]["D"] == 0.125
-
-    assert result["attr_norm_function"]["A"] == 0.5 / 6
-    assert result["attr_norm_function"]["B"] == 1 / 6
-    assert result["attr_norm_function"]["C"] == 0.5 / 6
-    assert result["attr_norm_function"]["D"] == 0
-
-    assert result["total"]["A"] == 0 + 0.5 / 6
-    assert result["total"]["B"] == 0 + 1 / 6
-    assert result["total"]["C"] == 0.125 + 0.5 / 6
-    assert result["total"]["D"] == 0.125 + 0
-
-
-def test_result_passed_in_data_remains_the_same():
-    X = pd.DataFrame(
-        data={"attr": [10, 5, 2, 1], "sex": ["M", "F", "F", "M"]},
-        index=["A", "B", "C", "D"],
+    data["predictions"] = y_pred
+    data["outcomes"] = y_pred_probas
+    data["equality"] = np.array([0, 0, 0.125, 0.125], dtype=np.float64)
+    data["attr_norm"] = np.array([0.5 / 6, 1 / 6, 0.5 / 6, 0], dtype=np.float64)
+    data["total"] = np.array(
+        [
+            0 + 0.5 / 6,
+            0 + 1 / 6,
+            0.125 + 0.5 / 6,
+            0.125 + 0,
+        ],
+        dtype=np.float64,
     )
-    y_pred = [1, 1, 0, 0]
-    y_pred_probas = [3, 1, 2, 4]
+    base = pl.LazyFrame(data)
 
-    def attr_norm_function(x):
-        return x["attr"]
-
-    norms = [
-        BinaryClassificationEqualityNorm(positive_class_value=1),
-        RankNorm(norm_function=attr_norm_function),
-    ]
-
-    result = contextual_fairness_score(
-        norms, X, y_pred, y_pred_probas, weights=[0.5, 0.5]
-    ).df
-
-    assert list(result.columns) == [
-        "attr",
-        "sex",
-        "Equality",
-        "attr_norm_function",
-        "total",
-    ]
-
-    assert list(X.columns) == [
-        "attr",
-        "sex",
-    ]
+    assert_frame_equal(result.collect(), base.collect())
 
 
 def test_result_uniform_norms():
-    X = pd.DataFrame(
-        data={"attr": [10, 5, 2, 1], "sex": ["M", "F", "F", "M"]},
-        index=["A", "B", "C", "D"],
-    )
+    data = {"attr": [10, 5, 2, 1], "sex": ["M", "F", "F", "M"]}
     y_pred = [1, 1, 0, 0]
     y_pred_probas = [3, 1, 2, 4]
 
-    def attr_norm_function(x):
-        return x["attr"]
+    attr_norm_stmt = pl.col("attr")
 
     norms = [
         BinaryClassificationEqualityNorm(positive_class_value=1),
-        RankNorm(norm_function=attr_norm_function),
-        RankNorm(norm_function=attr_norm_function, name="Second rank"),
+        RankNorm(norm_statement=attr_norm_stmt, name="attr_norm"),
+        RankNorm(norm_statement=attr_norm_stmt, name="attr_norm_2"),
     ]
 
-    result = contextual_fairness_score(norms, X, y_pred, y_pred_probas).df
+    result = contextual_fairness_score(norms, data, y_pred, y_pred_probas).df.collect()
 
     assert list(result.columns) == [
         "attr",
         "sex",
-        "Equality",
-        "attr_norm_function",
-        "Second rank",
+        "predictions",
+        "outcomes",
+        "equality",
+        "attr_norm",
+        "attr_norm_2",
         "total",
-    ]
-
-    assert list(X.columns) == [
-        "attr",
-        "sex",
     ]
 
 
 def test_uniform_norms_should_not_sum_to_one_if_no_weights():
-    X = pd.DataFrame(
-        data={"attr": [10, 5, 2, 1], "sex": ["M", "F", "F", "M"]},
-        index=["A", "B", "C", "D"],
-    )
+    data = {"attr": [10, 5, 2, 1], "sex": ["M", "F", "F", "M"]}
     y_pred = [1, 1, 0, 0]
     y_pred_probas = [3, 1, 2, 4]
 
-    def attr_norm_function(x):
-        return x["attr"]
+    attr_norm_stmt = pl.col("attr")
 
     norms = [
-        RankNorm(norm_function=attr_norm_function, name="1"),
-        RankNorm(norm_function=attr_norm_function, name="2"),
-        RankNorm(norm_function=attr_norm_function, name="3"),
-        RankNorm(norm_function=attr_norm_function, name="4"),
-        RankNorm(norm_function=attr_norm_function, name="5"),
-        RankNorm(norm_function=attr_norm_function, name="6"),
+        RankNorm(norm_statement=attr_norm_stmt, name="1"),
+        RankNorm(norm_statement=attr_norm_stmt, name="2"),
+        RankNorm(norm_statement=attr_norm_stmt, name="3"),
+        RankNorm(norm_statement=attr_norm_stmt, name="4"),
+        RankNorm(norm_statement=attr_norm_stmt, name="5"),
+        RankNorm(norm_statement=attr_norm_stmt, name="6"),
     ]
 
-    result = contextual_fairness_score(norms, X, y_pred, y_pred_probas).df
+    result = contextual_fairness_score(norms, data, y_pred, y_pred_probas).df.collect()
 
     assert list(result.columns) == [
         "attr",
         "sex",
+        "predictions",
+        "outcomes",
         "1",
         "2",
         "3",
@@ -244,11 +190,6 @@ def test_uniform_norms_should_not_sum_to_one_if_no_weights():
         "5",
         "6",
         "total",
-    ]
-
-    assert list(X.columns) == [
-        "attr",
-        "sex",
     ]
 
 
