@@ -2,95 +2,93 @@
 # Licensed under the MIT License.
 
 import pytest
+import numpy as np
 
-import pandas as pd
+import polars as pl
+from polars.testing import assert_frame_equal
 
 from contextualfairness.norms import BinaryClassificationEqualityNorm
 
 
-def test_binary_classification_normalizer():
-    norm = BinaryClassificationEqualityNorm()
-
-    assert norm._normalizer(101) == 50
-    assert norm._normalizer(100) == 50
-
-    norm.positive_class_value = "P"
-
-    assert norm._normalizer(101) == 101
-    assert norm._normalizer(100) == 100
-
-
 def test_binary_classification_call_no_positive_class():
-    X = pd.DataFrame(
-        {"attr": [1, 2, 3, 4, 5, 6]},
-        index=["A", "B", "C", "D", "E", "F"],
-    )
-    y_pred = ["A", "A", "A", "B", "B", "A"]
+    data = {"attr": [1, 2, 3, 4, 5, 6], "predictions": ["A", "A", "A", "B", "B", "A"]}
+    X = pl.LazyFrame(data)
+
     norm = BinaryClassificationEqualityNorm()
 
-    result = norm(X, y_pred, None)
+    result = norm(X)
 
-    assert sum(result) == pytest.approx(2 / 3)
-    assert result.equals(
-        pd.Series([0, 0, 0, 1 / 3, 1 / 3, 0], index=["A", "B", "C", "D", "E", "F"])
-    )
+    data["equality"] = np.array([0, 0, 0, 1 / 3, 1 / 3, 0], dtype=np.float64)
+    base = pl.LazyFrame(data)
+
+    assert_frame_equal(result.collect(), base.collect())
 
 
 def test_binary_classification_call_no_positive_class_no_normalize():
-    X = pd.DataFrame({"attr": [1, 2, 3, 4, 5, 6]})
-    y_pred = ["A", "A", "A", "B", "B", "A"]
+    data = {"attr": [1, 2, 3, 4, 5, 6], "predictions": ["A", "A", "A", "B", "B", "A"]}
+    X = pl.LazyFrame(data)
+
     norm = BinaryClassificationEqualityNorm()
 
-    result = norm(X, y_pred, None, normalize=False)
+    result = norm(X, normalize=False)
 
-    assert sum(result) == 2
-    assert result.equals(pd.Series([0, 0, 0, 1, 1, 0]))
+    data["equality"] = np.array([0, 0, 0, 1, 1, 0], dtype=np.float64)
+    base = pl.LazyFrame(data)
+
+    assert_frame_equal(result.collect(), base.collect())
 
 
 def test_binary_classification_call_with_positive_class():
-    X = pd.DataFrame({"attr": [1, 2, 3, 4, 5, 6]})
-    y_pred = ["A", "A", "A", "B", "B", "A"]
+    data = {"attr": [1, 2, 3, 4, 5, 6], "predictions": ["A", "A", "A", "B", "B", "A"]}
+    X = pl.LazyFrame(data)
 
     norm = BinaryClassificationEqualityNorm(positive_class_value="B")
 
-    result = norm(X, y_pred, None)
+    result = norm(X)
 
-    assert sum(result) == 4 / 6
-    assert result.equals(pd.Series([1 / 6, 1 / 6, 1 / 6, 0, 0, 1 / 6]))
+    data["equality"] = np.array([1 / 6, 1 / 6, 1 / 6, 0, 0, 1 / 6], dtype=np.float64)
+    base = pl.LazyFrame(data)
+
+    assert_frame_equal(result.collect(), base.collect())
+
 
 
 def test_binary_classification_call_only_one_class_present_no_positive_class():
-    X = pd.DataFrame({"attr": [1, 2, 3, 4, 5, 6]})
-    y_pred = ["A", "A", "A", "A", "A", "A"]
+    data = {"attr": [1, 2, 3, 4, 5, 6], "predictions": ["A", "A", "A", "A", "A", "A"]}
+    X = pl.LazyFrame(data)
 
     norm = BinaryClassificationEqualityNorm()
 
-    result = norm(X, y_pred, None)
+    result = norm(X)
 
-    assert sum(result) == 0
-    assert result.equals(pd.Series([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]))
+    data["equality"] = np.array([0,0,0,0,0,0], dtype=np.float64)
+    base = pl.LazyFrame(data)
+
+    assert_frame_equal(result.collect(), base.collect())
 
 
 def test_binary_classification_call_only_one_class_present_with_positive_class():
-    X = pd.DataFrame({"attr": [1, 2, 3, 4, 5, 6]})
-    y_pred = ["A", "A", "A", "A", "A", "A"]
+    data = {"attr": [1, 2, 3, 4, 5, 6], "predictions": ["A", "A", "A", "A", "A", "A"]}
+    X = pl.LazyFrame(data)
 
     norm = BinaryClassificationEqualityNorm(positive_class_value="B")
 
-    result = norm(X, y_pred, None)
+    result = norm(X)
 
-    assert sum(result) == pytest.approx(6 / 6)
-    assert result.equals(pd.Series([1 / 6, 1 / 6, 1 / 6, 1 / 6, 1 / 6, 1 / 6]))
+    data["equality"] = np.array([1 / 6, 1 / 6, 1 / 6, 1 / 6, 1 / 6, 1 / 6], dtype=np.float64)
+    base = pl.LazyFrame(data)
+
+    assert_frame_equal(result.collect(), base.collect())
 
 
 def test_binary_classification_call_three_classes_present_no_positive_class():
-    X = pd.DataFrame({"attr": [1, 2, 3, 4, 5, 6]})
-    y_pred = ["A", "A", "A", "B", "B", "C"]
+    data = {"attr": [1, 2, 3, 4, 5, 6], "predictions": ["A", "A", "A", "B", "B", "C"]}
+    X = pl.LazyFrame(data)
 
     norm = BinaryClassificationEqualityNorm()
 
     with pytest.raises(ValueError) as e1:
-        norm(X, y_pred, None)
+        norm(X)
 
     assert (
         str(e1.value)
@@ -99,13 +97,13 @@ def test_binary_classification_call_three_classes_present_no_positive_class():
 
 
 def test_binary_classification_call_only_three_classes_present_with_positive_class():
-    X = pd.DataFrame({"attr": [1, 2, 3, 4, 5, 6]})
-    y_pred = ["A", "A", "A", "B", "B", "C"]
+    data = {"attr": [1, 2, 3, 4, 5, 6], "predictions": ["A", "A", "A", "B", "B", "C"]}
+    X = pl.LazyFrame(data)
 
     norm = BinaryClassificationEqualityNorm(positive_class_value="B")
 
     with pytest.raises(ValueError) as e1:
-        norm(X, y_pred, None)
+        norm(X)
 
     assert (
         str(e1.value)

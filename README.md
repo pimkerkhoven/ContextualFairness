@@ -71,23 +71,19 @@ regression_equality_norm = RegressionEqualityNorm()
 
 Here equality, means having the maximum predicted value. Therefore, we calculate a score for this norm by taking the (absolute) difference between the prediction for each sample and the maximum prediction.
 
-To operationalize a `RankNorm`, we must first specify a function for ranking all samples in the dataset with respect to the norm. For example, for the norms defined above, rank by hours worked if *people who work more hours should earn more*. This gives te following operationalization:
+To operationalize a `RankNorm`, we must first specify a statement to rank all samples in the dataset with respect to the norm. As ContextualFairness uses polars under the hood, this must be formulated as a [polars expression](https://docs.pola.rs/user-guide/concepts/expressions-and-contexts/). For example, for the norms defined above, rank by hours worked if *people who work more hours should earn more*. This gives te following operationalization:
 
 ```python
+import polars as pl
+
 from contextualfairness.norms import RankNorm
 
-def more_hours_worked_is_preferred(x):
-    x.hours_worked # assuming x has the attribute `hours_worked`
+more_hours_worked_is_preferred = pl.col("hours_worked") # assuming the column `hours_worked` exists in the polars DataFrame
 
-rank_norm = RegressionEqualityNorm(norm_function=more_hours_worked_is_preferred, name="Work more hours")
+rank_norm = RankNorm(norm_statement=more_hours_worked_is_preferred, name="Work more hours")
 ```
 
-Alternative, we can also not specify a name, in this case the function name is used to name the norm:
-```python
-rank_norm = RegressionEqualityNorm(norm_function=more_hours_worked_is_preferred)
-```
-
-For rank norms we calculate a score, by for each sample counting the number of samples that are ranked lower with respect to the `norm_function` but higher with respect to an `output_score`. This `output_score` is the probability of being predicted a (positive) class for binary classification or the predicted value for regression.
+For rank norms we calculate a score, by for each sample counting the number of samples that are ranked lower with respect to the `norm_statement` but higher with respect to an `outcome_score`. This `outcome_score` is the probability of being predicted a (positive) class for binary classification or the predicted value for regression.
 
 
 ### Calculating contextual fairness
@@ -101,16 +97,16 @@ norms = [binary_classification_equality_norm, rank_norm]
 
 result = contextual_fairness_score(
     norms=norms,
-    X=X, # Assume the existence of some pandas.DataFrame dataset
+    data=data, # Dictionary with each key corresponding to column in the data
     y_pred=y_pred, # Assume the existence of some array-like of predictions
     outcome_scores=y_pred_probas, # Assume the existence of some array-like of outcome_scores
-    weights=[0.5, 0.4]
+    weights=[0.6, 0.4]
 )
 ```
 
 Alternatively, we can also not specify the weights to get uniform weights:
 ```python
-result = contextual_fairness_score(norms=norms, X=X, y_pred=y_pred, outcome_scores=y_pred_probas)
+result = contextual_fairness_score(norms=norms, data=data, y_pred=y_pred, outcome_scores=y_pred_probas)
 ```
 
 For regression, we do it as follows:
@@ -123,7 +119,7 @@ result = contextual_fairness_score(
     y_pred=y_pred, # Assume the existence of some array-like of predictions
 )
 ```
-Note, that for regression not specifying the `outcome_scores` results in setting `outcome_scores=y_pred`.
+Note, that not specifying the `outcome_scores` results in setting `outcome_scores=y_pred`, which is useful for regression.
 
 
 ### Analyze the results
@@ -136,19 +132,18 @@ result.total_score()
 
 The between-group and in-group level:
 ```python
-group_scores = result.group_scores(attributes=["sex", "age"]) # assuming existence of `sex` and `age` attribute in X
+group_scores = result.group_scores(attributes=["sex", "age"]).collect() # assuming existence of `sex` and `age` attribute in X
 
-print(group_scores["sex=male;age=young"]["score"])
-print(group_scores["sex=male;age=young"]["data"])
+print(group_scores.filter((pl.col("sex") == "male") & (pl.col("age") == "young"))) # To show the score for this group and the ids of the individuals belonging to the group.
 ```
-This gives the score for all groups in the dataset (where a group is combination of values for the specified attributes, e.g., sex=male;age=young). These scores an be compared between the different groups. Additionally, the data used for calculating the group scores is also provided to analyze the scores with-in a group.
+This gives the score for all groups in the dataset (where a group is combination of values for the specified attributes, e.g., sex=male and age=young). These scores an be compared between the different groups. Additionally, the data used for calculating the group scores is also provided to analyze the scores with-in a group.
 
 The group scores can also be scaled relative to their group sizes, as follows:
 ```python
-group_scores = result.group_scores(attributes=["sex", "age"], scaled=True)
+group_scores = result.group_scores(attributes=["sex", "age"], scaled=True).collect()
 ```
 
-Finally, for additional analyses the `pandas.DataFrame` containing the results can be accessed as follows:
+Finally, for additional analyses the `polars.DataFrame` containing the results can be accessed as follows:
 ```python
 result.df
 ```
@@ -169,19 +164,25 @@ from folktables import ACSDataSource, ACSIncome
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 
+import polars as pl
+
+
 from contextualfairness.scorer import contextual_fairness_score
 from contextualfairness.norms import BinaryClassificationEqualityNorm, RankNorm
 
 
 # load and prepare data
-data_source = ACSDataSource(survey_year="2016", horizon="1-Year", survey="person")
+data_source = ACSDataSource(
+    survey_year="2016", horizon="1-Year", survey="person", root_dir="examples/data/raw"
+)
 acs_data = data_source.get_data(states=["WY"], download="True")
 X, y, _ = ACSIncome.df_to_pandas(acs_data)
 y = y["PINCP"]
 sensitive_attribute = X["SEX"].copy()
 
-X_train, X_test, y_train, y_test, sens_train, sens_test = train_test_split(X, y, sensitive_attribute, test_size=0.2, random_state=0)
-
+X_train, X_test, y_train, y_test, sens_train, sens_test = train_test_split(
+    X, y, sensitive_attribute, test_size=0.2, random_state=0
+)
 
 # Train model
 clf = LogisticRegression(max_iter=10_000, penalty="l2", random_state=42)
@@ -192,29 +193,28 @@ y_pred = clf.predict(X_test)
 y_pred_probas = clf.predict_proba(X_test)[:, 1]
 
 
-# Define norms
-def work_more_hours(x):
-    return x["WKHP"]
-
-
-def lower_education(x):
-    return -x["SCHL"]
-
-
 norms = [
     BinaryClassificationEqualityNorm(positive_class_value=True),
-    RankNorm(norm_function=work_more_hours),
-    RankNorm(norm_function=lower_education),
+    RankNorm(norm_statement=pl.col("WKHP"), name="work_more_hours"),
+    RankNorm(norm_statement=-pl.col("SCHL"), name="lower_education"),
 ]
 
 # Calculate contextual fairness
 result = contextual_fairness_score(
-    norms=norms, X=X_test, y_pred=y_pred, outcome_scores=y_pred_probas
+    norms=norms,
+    data=X_test.to_dict("list"),
+    y_pred=y_pred,
+    outcome_scores=y_pred_probas,
 )
 
 # Analysis
 print(result.total_score())
-print(result.group_scores(attributes=["SEX"], scaled=True))
+print(result.group_scores(attributes=["SEX"], scaled=True).collect())
+print(
+    result.group_scores(attributes=["SEX"], scaled=True)
+    .collect()
+    .filter(pl.col("SEX") == 1.0)
+)
 ```
 
 Additional examples can be found in the `examples` folder. 
@@ -228,17 +228,17 @@ The most important limitations of the current implementation are:
 - Norms are combined linearly, consequently ContextualFairness cannot capture conditional or hierarchical relations between norms, for example, when we want equity except in cases of need.
 - Rank norms can only be meaningfully defined for tabular data, as defining a `norm_function` for other types of data such as image, sound or text data is much harder.
 
-<!-- Further limitations of ContextualFairness can be found in the [paper](). -->
+Further limitations of ContextualFairness can be found in the [paper](https://bnaic2025.unamur.be/accepted-submissions/accepted_oral/079%20-%20Assessing%20machine%20learning%20fairness%20with%20multiple%20contextual%20norms.pdf).
 
-<!-- ## Citing ContextualFairness
-ContextualFairness is proposed in this [paper](), wich you can cite as follows:
+## Citing ContextualFairness
+ContextualFairness is proposed in this [paper](https://bnaic2025.unamur.be/accepted-submissions/accepted_oral/079%20-%20Assessing%20machine%20learning%20fairness%20with%20multiple%20contextual%20norms.pdf), wich you can cite as follows:
 
-```
-@article{kerkhoven2025assessing,
+```bibtex
+@inproceedings{kerkhoven2025assessing,
   title={Assessing machine learning fairness with multiple contextual norms},
   author={Kerkhoven, Pim and Dignum, Virginia and Bhuyan, Monowar},
-  journal={},
-  volume={},
+  booktitle={The 37th Benelux Conference on Artificial Intelligence and the 34th Belgian Dutch Conference on Machine Learning},
   year={2025}
 }
-``` -->
+
+```

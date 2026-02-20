@@ -2,21 +2,23 @@
 # Licensed under the MIT License.
 
 import pytest
+import numpy as np
 
-import pandas as pd
+import polars as pl
+from polars.testing import assert_frame_equal
 
 from contextualfairness.scorer import ContextualFairnessResult
 
 
 @pytest.fixture
 def result_obj():
-    df = pd.DataFrame(
-        {
-            "sex": ["M", "M", "F", "M", "F", "M", "M", "F"],
-            "age": ["O", "O", "Y", "Y", "Y", "O", "Y", "O"],
-            "total": [0.1, 0.05, 0.2, 0.3, 0.1, 0.025, 0.06, 0.02],
-        }
-    )
+    data = {
+        "sex": ["M", "M", "F", "M", "F", "M", "M", "F"],
+        "age": ["O", "O", "Y", "Y", "Y", "O", "Y", "O"],
+        "total": [0.1, 0.05, 0.2, 0.3, 0.1, 0.025, 0.06, 0.02],
+    }
+
+    df = pl.LazyFrame(data)
 
     return ContextualFairnessResult(df)
 
@@ -43,80 +45,60 @@ def test_group_scores_non_existent_attr(result_obj):
 def test_group_score_single_attribute(result_obj):
     result = result_obj.group_scores(["sex"])
 
-    assert "sex=F" in result
-    assert "sex=M" in result
+    data = {
+        "sex": ["M", "F"],
+        "total": [0.1 + 0.05 + 0.3 + 0.025 + 0.06, 0.2 + 0.1 + 0.02],
+        "indices": [
+            np.array([0, 1, 3, 5, 6], dtype=np.uint32),
+            np.array([2, 4, 7], dtype=np.uint32),
+        ],
+    }
+    base = pl.LazyFrame(data)
 
-    assert result["sex=F"]["score"] == 0.2 + 0.1 + 0.02
-    assert result["sex=M"]["score"] == 0.1 + 0.05 + 0.3 + 0.025 + 0.06
-
-    assert list(result["sex=F"]["data"].index.values) == [2, 4, 7]
-    assert list(result["sex=M"]["data"].index.values) == [0, 1, 3, 5, 6]
-
-    assert sum(result["sex=F"]["data"]) == result["sex=F"]["score"]
-    assert sum(result["sex=M"]["data"]) == result["sex=M"]["score"]
-
-    assert result["sex=F"]["score"] + result["sex=M"]["score"] == pytest.approx(
-        result_obj.total_score()
-    )
+    assert_frame_equal(result.collect(), base.collect(), check_row_order=False)
 
 
 def test_group_score_two_attributes(result_obj):
     result = result_obj.group_scores(["sex", "age"])
 
-    assert "sex=F;age=O" in result
-    assert "sex=F;age=Y" in result
-    assert "sex=M;age=O" in result
-    assert "sex=M;age=Y" in result
+    data = {
+        "sex": ["F", "F", "M", "M"],
+        "age": ["O", "Y", "O", "Y"],
+        "total": [0.02, 0.2 + 0.1, 0.1 + 0.05 + 0.025, 0.3 + 0.06],
+        "indices": [
+            np.array([7], dtype=np.uint32),
+            np.array([2, 4], dtype=np.uint32),
+            np.array([0, 1, 5], dtype=np.uint32),
+            np.array([3, 6], dtype=np.uint32),
+        ],
+    }
+    base = pl.LazyFrame(data)
 
-    assert result["sex=F;age=O"]["score"] == 0.02
-    assert result["sex=F;age=Y"]["score"] == 0.2 + 0.1
-    assert result["sex=M;age=O"]["score"] == 0.1 + 0.05 + 0.025
-    assert result["sex=M;age=Y"]["score"] == 0.3 + 0.06
-
-    assert list(result["sex=F;age=O"]["data"].index.values) == [7]
-    assert list(result["sex=F;age=Y"]["data"].index.values) == [2, 4]
-    assert list(result["sex=M;age=O"]["data"].index.values) == [0, 1, 5]
-    assert list(result["sex=M;age=Y"]["data"].index.values) == [3, 6]
-
-    assert sum(result["sex=F;age=O"]["data"]) == result["sex=F;age=O"]["score"]
-    assert sum(result["sex=F;age=Y"]["data"]) == result["sex=F;age=Y"]["score"]
-    assert sum(result["sex=M;age=O"]["data"]) == result["sex=M;age=O"]["score"]
-    assert sum(result["sex=M;age=Y"]["data"]) == result["sex=M;age=Y"]["score"]
-
-    assert result["sex=F;age=O"]["score"] + result["sex=F;age=Y"]["score"] + result[
-        "sex=M;age=O"
-    ]["score"] + result["sex=M;age=Y"]["score"] == pytest.approx(
-        result_obj.total_score()
-    )
+    assert_frame_equal(result.collect(), base.collect(), check_row_order=False)
 
 
 def test_group_score_scaled_single_attribute(result_obj):
     result = result_obj.group_scores(["sex"], scaled=True)
 
     denominator = (0.2 + 0.1 + 0.02) / 3 + (0.1 + 0.05 + 0.3 + 0.025 + 0.06) / 5
+    data = {
+        "sex": ["M", "F"],
+        "total": [
+            ((0.1 + 0.05 + 0.3 + 0.025 + 0.06) / 5 / denominator) * 0.855,
+            ((0.2 + 0.1 + 0.02) / 3 / denominator) * 0.855,
+        ],
+        "indices": [
+            np.array([0, 1, 3, 5, 6], dtype=np.uint32),
+            np.array([2, 4, 7], dtype=np.uint32),
+        ],
+    }
+    base = pl.LazyFrame(data)
 
-    assert "sex=F" in result
-    assert "sex=M" in result
-
-    assert result["sex=F"]["score"] == ((0.2 + 0.1 + 0.02) / 3 / denominator) * 0.855
-    assert (
-        result["sex=M"]["score"]
-        == ((0.1 + 0.05 + 0.3 + 0.025 + 0.06) / 5 / denominator) * 0.855
-    )
-
-    assert list(result["sex=F"]["data"].index.values) == [2, 4, 7]
-    assert list(result["sex=M"]["data"].index.values) == [0, 1, 3, 5, 6]
-
-    assert sum(result["sex=F"]["data"]) == pytest.approx(result["sex=F"]["score"])
-    assert sum(result["sex=M"]["data"]) == pytest.approx(result["sex=M"]["score"])
-
-    assert (
-        result["sex=F"]["score"] + result["sex=M"]["score"] == result_obj.total_score()
-    )
+    assert_frame_equal(result.collect(), base.collect(), check_row_order=False)
 
 
 def test_group_score_scaled_with_empty_group():
-    df = pd.DataFrame(
+    df = pl.LazyFrame(
         {
             "sex": ["M", "M", "F", "M", "F", "M", "M", "F"],
             "age": ["O", "O", "Y", "Y", "Y", "O", "Y", "Y"],
@@ -129,75 +111,63 @@ def test_group_score_scaled_with_empty_group():
 
     denominator = (0.2 + 0.1 + 0.02) / 3 + (0.1 + 0.05 + 0.025) / 3 + (0.3 + 0.06) / 2
 
-    assert "sex=F;age=O" in result
-    assert "sex=F;age=Y" in result
-    assert "sex=M;age=O" in result
-    assert "sex=M;age=Y" in result
+    data = {
+        "sex": ["F", "F", "M", "M"],
+        "age": ["O", "Y", "O", "Y"],
+        "total": [
+            0.0,
+            ((0.2 + 0.1 + 0.02) / 3 / denominator) * 0.855,
+            ((0.1 + 0.05 + 0.025) / 3 / denominator) * 0.855,
+            ((0.3 + 0.06) / 2 / denominator) * 0.855,
+        ],
+        "indices": [
+            np.array([], dtype=np.uint32),
+            np.array([2, 4, 7], dtype=np.uint32),
+            np.array([0, 1, 5], dtype=np.uint32),
+            np.array([3, 6], dtype=np.uint32),
+        ],
+    }
+    base = pl.LazyFrame(data)
 
-    assert result["sex=F;age=O"]["score"] == 0
-    assert result["sex=F;age=Y"]["score"] == (
-        ((0.2 + 0.1 + 0.02) / 3 / denominator) * 0.855
-    )
-
-    assert (
-        result["sex=M;age=O"]["score"]
-        == ((0.1 + 0.05 + 0.025) / 3 / denominator) * 0.855
-    )
-
-    assert result["sex=M;age=Y"]["score"] == ((0.3 + 0.06) / 2 / denominator) * 0.855
-
-    assert list(result["sex=F;age=O"]["data"].index.values) == []
-    assert list(result["sex=F;age=Y"]["data"].index.values) == [2, 4, 7]
-    assert list(result["sex=M;age=O"]["data"].index.values) == [0, 1, 5]
-    assert list(result["sex=M;age=Y"]["data"].index.values) == [3, 6]
-
-    assert sum(result["sex=F;age=O"]["data"]) == pytest.approx(
-        result["sex=F;age=O"]["score"]
-    )
-    assert sum(result["sex=F;age=Y"]["data"]) == pytest.approx(
-        result["sex=F;age=Y"]["score"]
-    )
-    assert sum(result["sex=M;age=O"]["data"]) == pytest.approx(
-        result["sex=M;age=O"]["score"]
-    )
-    assert sum(result["sex=M;age=Y"]["data"]) == pytest.approx(
-        result["sex=M;age=Y"]["score"]
-    )
-
-    assert (
-        result["sex=F;age=O"]["score"]
-        + result["sex=F;age=Y"]["score"]
-        + result["sex=M;age=O"]["score"]
-        + result["sex=M;age=Y"]["score"]
-        == result_obj.total_score()
-    )
+    assert_frame_equal(result.collect(), base.collect(), check_row_order=False)
 
 
 def test_group_score_scaled_with_group_with_score_of_0():
-    df = pd.DataFrame(
+    df = pl.LazyFrame(
         {
-            "income": {0: 50, 1: 80, 2: 30, 3: 100, 4: 30},
-            "age": {0: "young", 1: "young", 2: "old", 3: "young", 4: "old"},
-            "sex": {0: "male", 1: "female", 2: "male", 3: "female", 4: "male"},
-            "y true": {0: 1, 1: 0, 2: 0, 3: 1, 4: 0},
-            "Equality": {0: 0.0, 1: 0.25, 2: 0.0, 3: 0.25, 4: 0.0},
-            "richer_is_better": {0: 0.05, 1: 0.15, 2: 0.0, 3: 0.15, 4: 0.0},
-            "total": {0: 0.05, 1: 0.4, 2: 0.0, 3: 0.4, 4: 0.0},
+            "income": [50, 80, 30, 100, 30],
+            "age": ["young", "young", "old", "young", "old"],
+            "sex": ["male", "female", "male", "female", "male"],
+            "y true": [1, 0, 0, 1, 0],
+            "Equality": [0.0, 0.25, 0.0, 0.25, 0.0],
+            "richer_is_better": [0.05, 0.15, 0.0, 0.15, 0.0],
+            "total": [0.05, 0.4, 0.0, 0.4, 0.0],
         }
     )
 
     result_obj = ContextualFairnessResult(df)
     result = result_obj.group_scores(["sex", "age"], scaled=True)
 
-    assert result["sex=female;age=old"]["data"].notna().all()
-    assert result["sex=female;age=young"]["data"].notna().all()
-    assert result["sex=male;age=old"]["data"].notna().all()
-    assert result["sex=male;age=young"]["data"].notna().all()
+    print(result.collect())
 
-    assert (
-        result["sex=female;age=old"]["score"]
-        + result["sex=female;age=young"]["score"]
-        + result["sex=male;age=old"]["score"]
-        + result["sex=male;age=young"]["score"]
-        == result_obj.total_score()
-    )
+    denominator = (0.05) / 1 + (0.4 + 0.4) / 2
+
+    data = {
+        "sex": ["male", "male", "female", "female"],
+        "age": ["old", "young", "old", "young"],
+        "total": [
+            0.0,
+            ((0.05) / 1 / denominator) * 0.85,
+            0.0,
+            ((0.4 + 0.4) / 2 / denominator) * 0.85,
+        ],
+        "indices": [
+            np.array([2, 4], dtype=np.uint32),
+            np.array([0], dtype=np.uint32),
+            np.array([], dtype=np.uint32),
+            np.array([1, 3], dtype=np.uint32),
+        ],
+    }
+    base = pl.LazyFrame(data)
+
+    assert_frame_equal(result.collect(), base.collect(), check_row_order=False)
